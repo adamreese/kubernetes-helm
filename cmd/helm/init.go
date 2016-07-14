@@ -23,7 +23,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"k8s.io/helm/pkg/client"
+	"k8s.io/helm/pkg/deploy"
 )
 
 const initDesc = `
@@ -75,7 +75,7 @@ func runInit(cmd *cobra.Command, args []string) error {
 }
 
 func installTiller() error {
-	if err := client.Install(tillerNamespace, tillerImg, flagDebug); err != nil {
+	if err := deploy.Install(tillerNamespace, tillerImg, flagDebug); err != nil {
 		return fmt.Errorf("error installing: %s", err)
 	}
 	fmt.Println("\nTiller (the helm server side component) has been installed into your Kubernetes Cluster.")
