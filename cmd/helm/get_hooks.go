@@ -18,11 +18,8 @@ package main
 
 import (
 	"fmt"
-	"io"
 
 	"github.com/spf13/cobra"
-
-	"k8s.io/helm/pkg/helm"
 )
 
 const getHooksHelp = `
@@ -33,14 +30,12 @@ Hooks are formatted in YAML and separated by the YAML '---\n' separator.
 
 type getHooksCmd struct {
 	release string
-	out     io.Writer
-	client  helm.Interface
+	*context
 }
 
-func newGetHooksCmd(client helm.Interface, out io.Writer) *cobra.Command {
+func newGetHooksCmd(ctx *context) *cobra.Command {
 	ghc := &getHooksCmd{
-		out:    out,
-		client: client,
+		context: ctx,
 	}
 	cmd := &cobra.Command{
 		Use:   "hooks [flags] RELEASE_NAME",
@@ -51,7 +46,6 @@ func newGetHooksCmd(client helm.Interface, out io.Writer) *cobra.Command {
 				return errReleaseRequired
 			}
 			ghc.release = args[0]
-			ghc.client = ensureHelmClient(ghc.client)
 			return ghc.run()
 		},
 	}
@@ -59,7 +53,12 @@ func newGetHooksCmd(client helm.Interface, out io.Writer) *cobra.Command {
 }
 
 func (g *getHooksCmd) run() error {
-	res, err := g.client.ReleaseContent(g.release)
+	c, err := g.client()
+	if err != nil {
+		return err
+	}
+
+	res, err := c.ReleaseContent(g.release)
 	if err != nil {
 		fmt.Fprintln(g.out, g.release)
 		return prettyError(err)

@@ -19,7 +19,6 @@ package main
 import (
 	"errors"
 	"fmt"
-	"io"
 	"path/filepath"
 
 	"github.com/spf13/cobra"
@@ -55,12 +54,12 @@ will be overwritten, but other files will be left alone.
 
 type createCmd struct {
 	name string
-	out  io.Writer
+	*context
 }
 
-func newCreateCmd(out io.Writer) *cobra.Command {
+func newCreateCmd(ctx *context) *cobra.Command {
 	cc := &createCmd{
-		out: out,
+		context: ctx,
 	}
 	cmd := &cobra.Command{
 		Use:   "create NAME",

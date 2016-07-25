@@ -46,14 +46,12 @@ var errReleaseRequired = errors.New("release name is required")
 
 type getCmd struct {
 	release string
-	out     io.Writer
-	client  helm.Interface
+	*context
 }
 
-func newGetCmd(client helm.Interface, out io.Writer) *cobra.Command {
+func newGetCmd(ctx *context) *cobra.Command {
 	get := &getCmd{
-		out:    out,
-		client: client,
+		context: ctx,
 	}
 	cmd := &cobra.Command{
 		Use:               "get [flags] RELEASE_NAME",
@@ -65,15 +63,14 @@ func newGetCmd(client helm.Interface, out io.Writer) *cobra.Command {
 				return errReleaseRequired
 			}
 			get.release = args[0]
-			if get.client == nil {
-				get.client = helm.NewClient(helm.Host(tillerHost))
-			}
 			return get.run()
 		},
 	}
-	cmd.AddCommand(newGetValuesCmd(nil, out))
-	cmd.AddCommand(newGetManifestCmd(nil, out))
-	cmd.AddCommand(newGetHooksCmd(nil, out))
+	cmd.AddCommand(
+		newGetValuesCmd(ctx),
+		newGetManifestCmd(ctx),
+		newGetHooksCmd(ctx),
+	)
 	return cmd
 }
 
@@ -96,7 +93,12 @@ MANIFEST:
 
 // getCmd is the command that implements 'helm get'
 func (g *getCmd) run() error {
-	res, err := g.client.ReleaseContent(g.release)
+	c, err := g.client()
+	if err != nil {
+		return err
+	}
+
+	res, err := c.ReleaseContent(g.release)
 	if err != nil {
 		return prettyError(err)
 	}

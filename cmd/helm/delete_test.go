@@ -17,7 +17,6 @@ limitations under the License.
 package main
 
 import (
-	"io"
 	"testing"
 
 	"github.com/spf13/cobra"
@@ -46,7 +45,8 @@ func TestDelete(t *testing.T) {
 			err:  true,
 		},
 	}
-	runReleaseCases(t, tests, func(c *fakeReleaseClient, out io.Writer) *cobra.Command {
-		return newDeleteCmd(c, out)
-	})
+	cmd := func(c *context) *cobra.Command {
+		return newDeleteCmd(c)
+	}
+	runReleaseCases(t, tests, cmd)
 }

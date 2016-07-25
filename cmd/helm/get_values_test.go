@@ -17,7 +17,6 @@ limitations under the License.
 package main
 
 import (
-	"io"
 	"testing"
 
 	"github.com/spf13/cobra"
@@ -36,8 +35,8 @@ func TestGetValuesCmd(t *testing.T) {
 			err:  true,
 		},
 	}
-	cmd := func(c *fakeReleaseClient, out io.Writer) *cobra.Command {
-		return newGetValuesCmd(c, out)
+	cmd := func(ctx *context) *cobra.Command {
+		return newGetValuesCmd(ctx)
 	}
 	runReleaseCases(t, tests, cmd)
 }

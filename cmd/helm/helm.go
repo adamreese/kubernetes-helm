@@ -23,6 +23,8 @@ import (
 	"os"
 	"strings"
 
+	"k8s.io/helm/pkg/helm"
+
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc"
 )
@@ -30,16 +32,17 @@ import (
 const (
 	homeEnvVar      = "HELM_HOME"
 	hostEnvVar      = "HELM_HOST"
+	defaultHome     = "~/.helm"
 	tillerNamespace = "kube-system"
 )
 
 var (
 	helmHome   string
 	tillerHost string
-)
 
-// flagDebug is a signal that the user wants additional output.
-var flagDebug bool
+	// flagDebug is a signal that the user wants additional output.
+	flagDebug bool
+)
 
 var globalUsage = `The Kubernetes package manager
 
@@ -62,7 +65,57 @@ Environment:
   $HELM_HOST      Set an alternative Tiller host. The format is host:port (default ":44134").
 `
 
-func newRootCmd(out io.Writer) *cobra.Command {
+type context struct {
+	home       string
+	host       string
+	namespace  string
+	helmClient helm.Interface
+	debug      bool
+	out        io.Writer
+}
+
+func newContext() *context {
+	home := os.Getenv(homeEnvVar)
+	if home == "" {
+		home = defaultHome
+	}
+
+	host := os.Getenv(hostEnvVar)
+
+	return &context{
+		home: home,
+		host: host,
+		out:  os.Stdout,
+	}
+}
+
+func (ctx *context) client() (helm.Interface, error) {
+	if ctx.helmClient != nil {
+		return ctx.helmClient, nil
+	}
+
+	if ctx.host == "" {
+		tunnel, err := newTillerPortForwarder(ctx.namespace)
+		if err != nil {
+			return nil, err
+		}
+
+		ctx.host = fmt.Sprintf(":%d", tunnel.Local)
+		if ctx.debug {
+			fmt.Printf("Created tunnel using local port: '%d'\n", tunnel.Local)
+		}
+	}
+
+	if ctx.debug {
+		fmt.Printf("Server: %q\n", ctx.host)
+	}
+
+	return helm.NewClient(helm.Host(ctx.host)), nil
+}
+
+func newRootCmd() *cobra.Command {
+	ctx := newContext()
+
 	cmd := &cobra.Command{
 		Use:          "helm",
 		Short:        "The Helm package manager for Kubernetes.",
@@ -72,30 +125,30 @@ func newRootCmd(out io.Writer) *cobra.Command {
 			teardown()
 		},
 	}
-	home := os.Getenv(homeEnvVar)
-	if home == "" {
-		home = "$HOME/.helm"
-	}
-	thost := os.Getenv(hostEnvVar)
 	p := cmd.PersistentFlags()
-	p.StringVar(&helmHome, "home", home, "location of your Helm config. Overrides $HELM_HOME.")
-	p.StringVar(&tillerHost, "host", thost, "address of tiller. Overrides $HELM_HOST.")
-	p.BoolVarP(&flagDebug, "debug", "", false, "enable verbose output")
+	p.StringVar(&ctx.home, "home", ctx.home, "location of your Helm config. Overrides $HELM_HOME.")
+	p.StringVar(&ctx.host, "host", ctx.host, "address of tiller. Overrides $HELM_HOST.")
+	p.BoolVarP(&ctx.debug, "debug", "", false, "enable verbose output")
+
+	// compatiblity
+	helmHome = ctx.home
+	tillerHost = ctx.host
+	flagDebug = ctx.debug
 
 	cmd.AddCommand(
-		newCreateCmd(out),
-		newGetCmd(nil, out),
-		newListCmd(nil, out),
-		newStatusCmd(nil, out),
-		newInstallCmd(nil, out),
-		newDeleteCmd(nil, out),
-		newInspectCmd(nil, out),
+		newCreateCmd(ctx),
+		newDeleteCmd(ctx),
+		newGetCmd(ctx),
+		newInspectCmd(ctx),
+		newInstallCmd(ctx),
+		newListCmd(ctx),
+		newStatusCmd(ctx),
 	)
 	return cmd
 }
 
 // RootCommand is the top-level command for Helm.
-var RootCommand = newRootCmd(os.Stdout)
+var RootCommand = newRootCmd()
 
 func main() {
 	cmd := RootCommand

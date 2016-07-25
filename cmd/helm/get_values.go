@@ -18,12 +18,10 @@ package main
 
 import (
 	"fmt"
-	"io"
 
 	"github.com/spf13/cobra"
 
 	"k8s.io/helm/pkg/chartutil"
-	"k8s.io/helm/pkg/helm"
 )
 
 var getValuesHelp = `
@@ -33,14 +31,12 @@ This command downloads a values file for a given release.
 type getValuesCmd struct {
 	release   string
 	allValues bool
-	out       io.Writer
-	client    helm.Interface
+	*context
 }
 
-func newGetValuesCmd(client helm.Interface, out io.Writer) *cobra.Command {
+func newGetValuesCmd(ctx *context) *cobra.Command {
 	get := &getValuesCmd{
-		out:    out,
-		client: client,
+		context: ctx,
 	}
 	cmd := &cobra.Command{
 		Use:   "values [flags] RELEASE_NAME",
@@ -51,7 +47,6 @@ func newGetValuesCmd(client helm.Interface, out io.Writer) *cobra.Command {
 				return errReleaseRequired
 			}
 			get.release = args[0]
-			get.client = ensureHelmClient(get.client)
 			return get.run()
 		},
 	}
@@ -61,7 +56,12 @@ func newGetValuesCmd(client helm.Interface, out io.Writer) *cobra.Command {
 
 // getValues implements 'helm get values'
 func (g *getValuesCmd) run() error {
-	res, err := g.client.ReleaseContent(g.release)
+	c, err := g.client()
+	if err != nil {
+		return err
+	}
+
+	res, err := c.ReleaseContent(g.release)
 	if err != nil {
 		return prettyError(err)
 	}

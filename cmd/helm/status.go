@@ -18,11 +18,9 @@ package main
 
 import (
 	"fmt"
-	"io"
 
 	"github.com/spf13/cobra"
 
-	"k8s.io/helm/pkg/helm"
 	"k8s.io/helm/pkg/timeconv"
 )
 
@@ -32,14 +30,12 @@ This command shows the status of a named release.
 
 type statusCmd struct {
 	release string
-	out     io.Writer
-	client  helm.Interface
+	*context
 }
 
-func newStatusCmd(client helm.Interface, out io.Writer) *cobra.Command {
+func newStatusCmd(ctx *context) *cobra.Command {
 	status := &statusCmd{
-		out:    out,
-		client: client,
+		context: ctx,
 	}
 	cmd := &cobra.Command{
 		Use:               "status [flags] RELEASE_NAME",
@@ -51,9 +47,6 @@ func newStatusCmd(client helm.Interface, out io.Writer) *cobra.Command {
 				return errReleaseRequired
 			}
 			status.release = args[0]
-			if status.client == nil {
-				status.client = helm.NewClient(helm.Host(tillerHost))
-			}
 			return status.run()
 		},
 	}
@@ -61,7 +54,11 @@ func newStatusCmd(client helm.Interface, out io.Writer) *cobra.Command {
 }
 
 func (s *statusCmd) run() error {
-	res, err := s.client.ReleaseStatus(s.release)
+	c, err := s.client()
+	if err != nil {
+		return err
+	}
+	res, err := c.ReleaseStatus(s.release)
 	if err != nil {
 		return prettyError(err)
 	}

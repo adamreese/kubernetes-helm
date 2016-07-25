@@ -18,7 +18,6 @@ package main
 
 import (
 	"bytes"
-	"io"
 	"regexp"
 	"testing"
 
@@ -126,16 +125,19 @@ func (c *fakeReleaseClient) Option(opt ...helm.Option) helm.Interface {
 }
 
 // releaseCmd is a command that works with a fakeReleaseClient
-type releaseCmd func(c *fakeReleaseClient, out io.Writer) *cobra.Command
+type releaseCmd func(c *context) *cobra.Command
 
 // runReleaseCases runs a set of release cases through the given releaseCmd.
 func runReleaseCases(t *testing.T, tests []releaseCase, rcmd releaseCmd) {
 	var buf bytes.Buffer
 	for _, tt := range tests {
-		c := &fakeReleaseClient{
-			rels: []*release.Release{tt.resp},
+		ctx := &context{
+			helmClient: &fakeReleaseClient{
+				rels: []*release.Release{tt.resp},
+			},
+			out: &buf,
 		}
-		cmd := rcmd(c, &buf)
+		cmd := rcmd(ctx)
 		cmd.ParseFlags(tt.flags)
 		err := cmd.RunE(cmd, tt.args)
 		if (err != nil) != tt.err {

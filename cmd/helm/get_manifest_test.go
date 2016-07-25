@@ -17,7 +17,6 @@ limitations under the License.
 package main
 
 import (
-	"io"
 	"testing"
 
 	"github.com/spf13/cobra"
@@ -37,7 +36,7 @@ func TestGetManifest(t *testing.T) {
 			err:  true,
 		},
 	}
-	runReleaseCases(t, tests, func(c *fakeReleaseClient, out io.Writer) *cobra.Command {
-		return newGetManifestCmd(c, out)
+	runReleaseCases(t, tests, func(ctx *context) *cobra.Command {
+		return newGetManifestCmd(ctx)
 	})
 }

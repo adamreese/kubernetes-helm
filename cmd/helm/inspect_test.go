@@ -28,7 +28,7 @@ func TestInspect(t *testing.T) {
 
 	insp := &inspectCmd{
 		chartpath: "testdata/testcharts/alpine",
-		out:       b,
+		context:   &context{out: b},
 	}
 	insp.run()
 

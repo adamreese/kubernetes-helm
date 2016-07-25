@@ -18,7 +18,6 @@ package main
 
 import (
 	"fmt"
-	"io"
 	"strings"
 	"testing"
 
@@ -59,9 +58,10 @@ func TestInstall(t *testing.T) {
 		},
 	}
 
-	runReleaseCases(t, tests, func(c *fakeReleaseClient, out io.Writer) *cobra.Command {
-		return newInstallCmd(c, out)
-	})
+	cmd := func(c *context) *cobra.Command {
+		return newInstallCmd(c)
+	}
+	runReleaseCases(t, tests, cmd)
 }
 
 func TestValues(t *testing.T) {

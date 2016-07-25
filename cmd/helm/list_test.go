@@ -52,10 +52,13 @@ func TestListCmd(t *testing.T) {
 
 	var buf bytes.Buffer
 	for _, tt := range tests {
-		c := &fakeReleaseClient{
-			rels: tt.resp,
+		ctx := &context{
+			helmClient: &fakeReleaseClient{
+				rels: tt.resp,
+			},
+			out: &buf,
 		}
-		cmd := newListCmd(c, &buf)
+		cmd := newListCmd(ctx)
 		for flag, value := range tt.flags {
 			cmd.Flags().Set(flag, value)
 		}

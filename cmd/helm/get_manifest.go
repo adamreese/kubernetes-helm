@@ -18,11 +18,8 @@ package main
 
 import (
 	"fmt"
-	"io"
 
 	"github.com/spf13/cobra"
-
-	"k8s.io/helm/pkg/helm"
 )
 
 var getManifestHelp = `
@@ -35,14 +32,12 @@ charts, those resources will also be included in the manifest.
 
 type getManifestCmd struct {
 	release string
-	out     io.Writer
-	client  helm.Interface
+	*context
 }
 
-func newGetManifestCmd(client helm.Interface, out io.Writer) *cobra.Command {
+func newGetManifestCmd(ctx *context) *cobra.Command {
 	get := &getManifestCmd{
-		out:    out,
-		client: client,
+		context: ctx,
 	}
 	cmd := &cobra.Command{
 		Use:   "manifest [flags] RELEASE_NAME",
@@ -53,9 +48,6 @@ func newGetManifestCmd(client helm.Interface, out io.Writer) *cobra.Command {
 				return errReleaseRequired
 			}
 			get.release = args[0]
-			if get.client == nil {
-				get.client = helm.NewClient(helm.Host(tillerHost))
-			}
 			return get.run()
 		},
 	}
@@ -64,7 +56,12 @@ func newGetManifestCmd(client helm.Interface, out io.Writer) *cobra.Command {
 
 // getManifest implements 'helm get manifest'
 func (g *getManifestCmd) run() error {
-	res, err := g.client.ReleaseContent(g.release)
+	c, err := g.client()
+	if err != nil {
+		return err
+	}
+
+	res, err := c.ReleaseContent(g.release)
 	if err != nil {
 		return prettyError(err)
 	}

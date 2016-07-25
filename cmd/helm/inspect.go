@@ -18,13 +18,11 @@ package main
 
 import (
 	"fmt"
-	"io"
 
 	"github.com/ghodss/yaml"
 	"github.com/spf13/cobra"
 
 	"k8s.io/helm/pkg/chartutil"
-	"k8s.io/helm/pkg/helm"
 )
 
 const inspectDesc = `
@@ -35,15 +33,12 @@ Inspect prints the contents of the Chart.yaml file and the values.yaml file.
 
 type inspectCmd struct {
 	chartpath string
-
-	out    io.Writer
-	client helm.Interface
+	*context
 }
 
-func newInspectCmd(c helm.Interface, out io.Writer) *cobra.Command {
+func newInspectCmd(ctx *context) *cobra.Command {
 	insp := &inspectCmd{
-		client: c,
-		out:    out,
+		context: ctx,
 	}
 
 	cc := &cobra.Command{

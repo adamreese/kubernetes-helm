@@ -18,7 +18,6 @@ package main
 
 import (
 	"fmt"
-	"io"
 	"strings"
 
 	"github.com/gosuri/uitable"
@@ -60,14 +59,12 @@ type listCmd struct {
 	offset   string
 	byDate   bool
 	sortDesc bool
-	out      io.Writer
-	client   helm.Interface
+	*context
 }
 
-func newListCmd(client helm.Interface, out io.Writer) *cobra.Command {
+func newListCmd(ctx *context) *cobra.Command {
 	list := &listCmd{
-		out:    out,
-		client: client,
+		context: ctx,
 	}
 	cmd := &cobra.Command{
 		Use:               "list [flags] [FILTER]",
@@ -78,9 +75,6 @@ func newListCmd(client helm.Interface, out io.Writer) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) > 0 {
 				list.filter = strings.Join(args, " ")
-			}
-			if list.client == nil {
-				list.client = helm.NewClient(helm.Host(tillerHost))
 			}
 			return list.run()
 		},
@@ -95,6 +89,11 @@ func newListCmd(client helm.Interface, out io.Writer) *cobra.Command {
 }
 
 func (l *listCmd) run() error {
+	c, err := l.client()
+	if err != nil {
+		return err
+	}
+
 	sortBy := services.ListSort_NAME
 	if l.byDate {
 		sortBy = services.ListSort_LAST_RELEASED
@@ -105,7 +104,7 @@ func (l *listCmd) run() error {
 		sortOrder = services.ListSort_DESC
 	}
 
-	res, err := l.client.ListReleases(
+	res, err := c.ListReleases(
 		helm.ReleaseListLimit(l.limit),
 		helm.ReleaseListOffset(l.offset),
 		helm.ReleaseListFilter(l.filter),

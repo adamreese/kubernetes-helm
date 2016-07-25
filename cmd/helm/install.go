@@ -18,7 +18,6 @@ package main
 
 import (
 	"fmt"
-	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -59,16 +58,14 @@ type installCmd struct {
 	chartPath    string
 	dryRun       bool
 	disableHooks bool
-	out          io.Writer
-	client       helm.Interface
 	values       *values
+	*context
 }
 
-func newInstallCmd(c helm.Interface, out io.Writer) *cobra.Command {
+func newInstallCmd(ctx *context) *cobra.Command {
 	inst := &installCmd{
-		out:    out,
-		client: c,
-		values: new(values),
+		values:  new(values),
+		context: ctx,
 	}
 
 	cmd := &cobra.Command{
@@ -85,7 +82,6 @@ func newInstallCmd(c helm.Interface, out io.Writer) *cobra.Command {
 				return err
 			}
 			inst.chartPath = cp
-			inst.client = ensureHelmClient(inst.client)
 			return inst.run()
 		},
 	}
@@ -111,7 +107,12 @@ func (i *installCmd) run() error {
 		return err
 	}
 
-	res, err := i.client.InstallRelease(i.chartPath, i.namespace, helm.ValueOverrides(rawVals), helm.ReleaseName(i.name), helm.InstallDryRun(i.dryRun), helm.InstallDisableHooks(i.disableHooks))
+	c, err := i.client()
+	if err != nil {
+		return err
+	}
+
+	res, err := c.InstallRelease(i.chartPath, i.namespace, helm.ValueOverrides(rawVals), helm.ReleaseName(i.name), helm.InstallDryRun(i.dryRun), helm.InstallDisableHooks(i.disableHooks))
 	if err != nil {
 		return prettyError(err)
 	}

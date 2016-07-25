@@ -18,7 +18,6 @@ package main
 
 import (
 	"errors"
-	"io"
 
 	"github.com/spf13/cobra"
 
@@ -37,17 +36,13 @@ type deleteCmd struct {
 	name         string
 	dryRun       bool
 	disableHooks bool
-
-	out    io.Writer
-	client helm.Interface
+	*context
 }
 
-func newDeleteCmd(c helm.Interface, out io.Writer) *cobra.Command {
+func newDeleteCmd(ctx *context) *cobra.Command {
 	del := &deleteCmd{
-		out:    out,
-		client: c,
+		context: ctx,
 	}
-
 	cmd := &cobra.Command{
 		Use:               "delete [flags] RELEASE_NAME",
 		Aliases:           []string{"del"},
@@ -60,7 +55,6 @@ func newDeleteCmd(c helm.Interface, out io.Writer) *cobra.Command {
 				return errors.New("command 'delete' requires a release name")
 			}
 			del.name = args[0]
-			del.client = ensureHelmClient(del.client)
 			return del.run()
 		},
 	}
@@ -72,10 +66,14 @@ func newDeleteCmd(c helm.Interface, out io.Writer) *cobra.Command {
 }
 
 func (d *deleteCmd) run() error {
+	c, err := d.client()
+	if err != nil {
+		return err
+	}
 	opts := []helm.DeleteOption{
 		helm.DeleteDryRun(d.dryRun),
 		helm.DeleteDisableHooks(d.disableHooks),
 	}
-	_, err := d.client.DeleteRelease(d.name, opts...)
+	_, err = c.DeleteRelease(d.name, opts...)
 	return prettyError(err)
 }
