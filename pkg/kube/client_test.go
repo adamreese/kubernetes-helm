@@ -59,10 +59,12 @@ func TestUpdateResource(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		err := updateResource(tt.modified, tt.currentObj)
-		if err != nil && err.Error() != tt.errMessage {
-			t.Errorf("%q. expected error message: %v, got %v", tt.name, tt.errMessage, err)
-		}
+		t.Run(tt.name, func(t *testing.T) {
+			err := updateResource(tt.modified, tt.currentObj)
+			if err != nil && err.Error() != tt.errMessage {
+				t.Errorf("expected error message: %v, got %v", tt.errMessage, err)
+			}
+		})
 	}
 }
 
@@ -90,33 +92,35 @@ func TestPerform(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		results := []*resource.Info{}
+		t.Run(tt.name, func(t *testing.T) {
+			results := []*resource.Info{}
 
-		fn := func(info *resource.Info) error {
-			results = append(results, info)
+			fn := func(info *resource.Info) error {
+				results = append(results, info)
 
-			if info.Namespace != tt.namespace {
-				t.Errorf("%q. expected namespace to be '%s', got %s", tt.name, tt.namespace, info.Namespace)
+				if info.Namespace != tt.namespace {
+					t.Errorf("expected namespace to be '%s', got %s", tt.namespace, info.Namespace)
+				}
+				return nil
 			}
-			return nil
-		}
 
-		c := New(nil)
-		c.ClientForMapping = func(mapping *meta.RESTMapping) (resource.RESTClient, error) {
-			return &fake.RESTClient{}, nil
-		}
+			c := New(nil)
+			c.ClientForMapping = func(mapping *meta.RESTMapping) (resource.RESTClient, error) {
+				return &fake.RESTClient{}, nil
+			}
 
-		err := perform(c, tt.namespace, tt.reader, fn)
-		if (err != nil) != tt.err {
-			t.Errorf("%q. expected error: %v, got %v", tt.name, tt.err, err)
-		}
-		if err != nil && err.Error() != tt.errMessage {
-			t.Errorf("%q. expected error message: %v, got %v", tt.name, tt.errMessage, err)
-		}
+			err := perform(c, tt.namespace, tt.reader, fn)
+			if (err != nil) != tt.err {
+				t.Errorf("expected error: %v, got %v", tt.err, err)
+			}
+			if err != nil && err.Error() != tt.errMessage {
+				t.Errorf("expected error message: %v, got %v", tt.errMessage, err)
+			}
 
-		if len(results) != tt.count {
-			t.Errorf("%q. expected %d result objects, got %d", tt.name, tt.count, len(results))
-		}
+			if len(results) != tt.count {
+				t.Errorf("expected %d result objects, got %d", tt.count, len(results))
+			}
+		})
 	}
 }
 
