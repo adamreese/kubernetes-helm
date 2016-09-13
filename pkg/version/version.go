@@ -17,10 +17,35 @@ limitations under the License.
 // Package version represents the current version of the project.
 package version // import "k8s.io/helm/pkg/version"
 
+import (
+	"fmt"
+
+	"github.com/Masterminds/semver"
+)
+
 // Version is the current version of the Helm.
 // Update this whenever making a new release.
 // The version is of the format Major.Minor.Patch
 // Increment major number for new feature additions and behavioral changes.
 // Increment minor number for bug fixes and performance enhancements.
 // Increment patch number for critical fixes to existing releases.
-var Version = "v2.0.0-alpha.4"
+var version = "v2.0.0-alpha.4"
+
+var Version *semver.Version
+
+func init() {
+	Version = MustParse(version)
+}
+
+// MustParse parses a given version and panics on error.
+func MustParse(v string) *semver.Version {
+	sv, err := semver.NewVersion(v)
+	if err != nil {
+		panic(err)
+	}
+	return sv
+}
+
+func MinClusterVersion() string {
+	return fmt.Sprintf("v%d.%d.0", Version.Major(), Version.Minor())
+}

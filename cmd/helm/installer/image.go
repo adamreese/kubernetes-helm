@@ -19,36 +19,42 @@ package installer // import "k8s.io/helm/cmd/helm/installer"
 import (
 	"crypto/tls"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"sort"
 
 	"github.com/Masterminds/semver"
 	"github.com/docker/distribution/reference"
 )
 
-const (
-	defaultReference = "gcr.io/kubernetes-helm/tiller"
-)
+func ResolveTag(ver string, refs []string) (string, error) {
+	// Create the constraint first to make sure it's valid before
+	// working on the repo.
+	constraint, err := semver.NewConstraint(ver)
+	if err != nil {
+		return "", err
+	}
 
-type tag string
+	// Convert and filter the list to semver.Version instances
+	semvers := getSemVers(refs)
 
-func (t tag) isSemver() bool {
-	_, err := semver.NewVersion(string(t))
-	return err == nil
-}
-
-type tags []tag
-
-func (t tags) semverTags() tags {
-	var newList tags
-
-	for _, tag := range t {
-		if tag.isSemver() {
-			newList = append(newList, tag)
+	// Sort semver list
+	sort.Sort(sort.Reverse(semver.Collection(semvers)))
+	found := false
+	for _, v := range semvers {
+		if constraint.Check(v) {
+			found = true
+			// If the constrint passes get the original reference
+			ver = v.Original()
+			break
 		}
 	}
-	return newList
+	if !found {
+		return "", errors.New("could not find a matching version")
+	}
+	return ver, nil
 }
 
 type RegistryClient struct {
@@ -66,7 +72,7 @@ func NewRegistryClient() *RegistryClient {
 	}
 }
 
-func (c *RegistryClient) GetTags(ref string) (tags, error) {
+func (c *RegistryClient) GetTags(ref string) ([]string, error) {
 	host, name, err := ParseImageName(ref)
 	if err != nil {
 		return nil, err
@@ -82,7 +88,7 @@ func (c *RegistryClient) GetTags(ref string) (tags, error) {
 		return nil, err
 	}
 
-	var j struct{ Tags tags }
+	var j struct{ Tags []string }
 	json.Unmarshal(body, &j)
 	return j.Tags, nil
 }
@@ -101,4 +107,17 @@ func ParseImageName(image string) (string, string, error) {
 func isSemver(tag string) bool {
 	_, err := semver.NewVersion(tag)
 	return err == nil
+}
+
+// Filter a list of versions to only included semantic versions. The response
+// is a mapping of the original version to the semantic version.
+func getSemVers(refs []string) []*semver.Version {
+	sv := []*semver.Version{}
+	for _, r := range refs {
+		v, err := semver.NewVersion(r)
+		if err == nil {
+			sv = append(sv, v)
+		}
+	}
+	return sv
 }

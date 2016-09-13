@@ -18,7 +18,6 @@ package installer // import "k8s.io/helm/cmd/helm/installer"
 
 import (
 	"fmt"
-	"strings"
 
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/errors"
@@ -61,8 +60,17 @@ func Install(namespace, image string, verbose bool) error {
 	}
 
 	if image == "" {
-		// strip git sha off version
-		tag := strings.Split(version.Version, "+")[0]
+		tags, err := NewRegistryClient().GetTags(defaultImage)
+		if err != nil {
+			return err
+		}
+
+		constraint := fmt.Sprintf("~%d.%d", version.Version.Major(), version.Version.Minor())
+
+		tag, err := ResolveTag(constraint, tags)
+		if err != nil {
+			return fmt.Errorf("could not find a valid image tag for '%s' in '%s': %v", constraint, tags, err)
+		}
 		image = fmt.Sprintf("%s:%s", defaultImage, tag)
 	}
 

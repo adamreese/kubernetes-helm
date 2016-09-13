@@ -40,8 +40,26 @@ func TestGetTags(t *testing.T) {
 	if len(tags) != 4 {
 		t.Errorf("expected 4 tags, got %d", len(tags))
 	}
+}
 
-	if len(tags.semverTags()) != 3 {
-		t.Errorf("expected 3 tags, got %d", len(tags.semverTags()))
+func TestResolveTag(t *testing.T) {
+	ts := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintln(w, `{"tags": ["canary", "v1.2.3", "1.0", "1.3"]}`)
+	}))
+	defer ts.Close()
+
+	ref := strings.TrimPrefix(ts.URL+"/foo", "https://")
+
+	tags, err := NewRegistryClient().GetTags(ref)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	tag, err := ResolveTag("~1.2", tags)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if tag != "1.2.3" {
+		t.Fatalf("expected '1.2.3', got '%s'", tag)
 	}
 }
