@@ -24,10 +24,14 @@ import (
 	"testing"
 )
 
-func TestGetTags(t *testing.T) {
-	ts := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+func fakeRegistry() *httptest.Server {
+	return httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintln(w, `{"tags": ["canary", "1.2.3", "1.0", "1.3"]}`)
 	}))
+}
+
+func TestGetTags(t *testing.T) {
+	ts := fakeRegistry()
 	defer ts.Close()
 
 	ref := strings.TrimPrefix(ts.URL+"/foo", "https://")
@@ -43,9 +47,7 @@ func TestGetTags(t *testing.T) {
 }
 
 func TestResolveTag(t *testing.T) {
-	ts := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintln(w, `{"tags": ["canary", "v1.2.3", "1.0", "1.3"]}`)
-	}))
+	ts := fakeRegistry()
 	defer ts.Close()
 
 	ref := strings.TrimPrefix(ts.URL+"/foo", "https://")

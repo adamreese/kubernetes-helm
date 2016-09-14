@@ -42,6 +42,7 @@ func ResolveTag(ver string, refs []string) (string, error) {
 
 	// Sort semver list
 	sort.Sort(sort.Reverse(semver.Collection(semvers)))
+
 	found := false
 	for _, v := range semvers {
 		if constraint.Check(v) {

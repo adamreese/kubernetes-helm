@@ -65,7 +65,7 @@ func Install(namespace, image string, verbose bool) error {
 			return err
 		}
 
-		constraint := fmt.Sprintf("~%d.%d", version.Version.Major(), version.Version.Minor())
+		constraint := fmt.Sprintf("~%d.%d-alpha", version.Version.Major(), version.Version.Minor())
 
 		tag, err := ResolveTag(constraint, tags)
 		if err != nil {
