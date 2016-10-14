@@ -34,11 +34,8 @@ func TestRepoAddCmd(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	oldhome := homePath()
-	helmHome = thome
 	defer func() {
 		srv.Stop()
-		helmHome = oldhome
 		os.Remove(thome)
 	}()
 	if err := ensureTestHome(helmpath.Home(thome), t); err != nil {
@@ -56,6 +53,7 @@ func TestRepoAddCmd(t *testing.T) {
 	for _, tt := range tests {
 		buf := bytes.NewBuffer(nil)
 		c := newRepoAddCmd(buf)
+		c.Flags().Set("home", thome)
 		if err := c.RunE(c, tt.args); err != nil {
 			t.Errorf("%q: expected %q, got %q", tt.name, tt.expected, err)
 		}
@@ -68,12 +66,9 @@ func TestRepoAdd(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	oldhome := homePath()
-	helmHome = thome
 	hh := helmpath.Home(thome)
 	defer func() {
 		ts.Stop()
-		helmHome = oldhome
 		os.Remove(thome)
 	}()
 	if err := ensureTestHome(hh, t); err != nil {

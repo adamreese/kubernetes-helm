@@ -97,6 +97,7 @@ type installCmd struct {
 	values       *values
 	nameTemplate string
 	version      string
+	home         helmpath.Home
 }
 
 func newInstallCmd(c helm.Interface, out io.Writer) *cobra.Command {
@@ -115,7 +116,7 @@ func newInstallCmd(c helm.Interface, out io.Writer) *cobra.Command {
 			if err := checkArgsLength(len(args), "chart name"); err != nil {
 				return err
 			}
-			cp, err := locateChartPath(args[0], inst.version, inst.verify, inst.keyring)
+			cp, err := locateChartPath(args[0], inst.version, inst.verify, inst.keyring, inst.home)
 			if err != nil {
 				return err
 			}
@@ -301,7 +302,7 @@ func splitPair(item string) (name string, value interface{}) {
 // - URL
 //
 // If 'verify' is true, this will attempt to also verify the chart.
-func locateChartPath(name, version string, verify bool, keyring string) (string, error) {
+func locateChartPath(name, version string, verify bool, keyring string, home helmpath.Home) (string, error) {
 	name = strings.TrimSpace(name)
 	version = strings.TrimSpace(version)
 	if fi, err := os.Stat(name); err == nil {
@@ -323,13 +324,13 @@ func locateChartPath(name, version string, verify bool, keyring string) (string,
 		return name, fmt.Errorf("path %q not found", name)
 	}
 
-	crepo := filepath.Join(helmpath.Home(homePath()).Repository(), name)
+	crepo := filepath.Join(string(home), name)
 	if _, err := os.Stat(crepo); err == nil {
 		return filepath.Abs(crepo)
 	}
 
 	dl := downloader.ChartDownloader{
-		HelmHome: helmpath.Home(homePath()),
+		HelmHome: home,
 		Out:      os.Stdout,
 		Keyring:  keyring,
 	}

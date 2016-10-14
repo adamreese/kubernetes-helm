@@ -53,7 +53,6 @@ func newDependencyBuildCmd(out io.Writer) *cobra.Command {
 		Short: "rebuild the charts/ directory based on the requirements.lock file",
 		Long:  dependencyBuildDesc,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			dbc.helmhome = helmpath.Home(homePath())
 			dbc.chartpath = "."
 
 			if len(args) > 0 {
@@ -66,6 +65,7 @@ func newDependencyBuildCmd(out io.Writer) *cobra.Command {
 	f := cmd.Flags()
 	f.BoolVar(&dbc.verify, "verify", false, "Verify the packages against signatures.")
 	f.StringVar(&dbc.keyring, "keyring", defaultKeyring(), "The keyring containing public keys.")
+	bindHomeFlag(f, &dbc.helmhome)
 
 	return cmd
 }

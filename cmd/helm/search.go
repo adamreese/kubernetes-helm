@@ -48,7 +48,7 @@ type searchCmd struct {
 }
 
 func newSearchCmd(out io.Writer) *cobra.Command {
-	sc := &searchCmd{out: out, helmhome: helmpath.Home(homePath())}
+	sc := &searchCmd{out: out}
 
 	cmd := &cobra.Command{
 		Use:   "search [keyword]",
@@ -62,6 +62,7 @@ func newSearchCmd(out io.Writer) *cobra.Command {
 	f := cmd.Flags()
 	f.BoolVarP(&sc.regexp, "regexp", "r", false, "use regular expressions for searching")
 	f.BoolVarP(&sc.versions, "versions", "l", false, "show the long listing, with each version of each chart on its own line.")
+	bindHomeFlag(f, &sc.helmhome)
 
 	return cmd
 }

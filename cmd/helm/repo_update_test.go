@@ -33,12 +33,7 @@ func TestUpdateCmd(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	oldhome := homePath()
-	helmHome = thome
-	defer func() {
-		helmHome = oldhome
-		os.Remove(thome)
-	}()
+	defer os.Remove(thome)
 
 	out := bytes.NewBuffer(nil)
 	// Instead of using the HTTP updater, we provide our own for this test.
@@ -68,11 +63,8 @@ func TestUpdateCharts(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	oldhome := homePath()
-	helmHome = thome
 	defer func() {
 		srv.Stop()
-		helmHome = oldhome
 		os.Remove(thome)
 	}()
 	if err := ensureTestHome(helmpath.Home(thome), t); err != nil {

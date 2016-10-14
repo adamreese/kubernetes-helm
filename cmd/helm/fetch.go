@@ -54,7 +54,8 @@ type fetchCmd struct {
 	verify  bool
 	keyring string
 
-	out io.Writer
+	home helmpath.Home
+	out  io.Writer
 }
 
 func newFetchCmd(out io.Writer) *cobra.Command {
@@ -85,6 +86,7 @@ func newFetchCmd(out io.Writer) *cobra.Command {
 	f.StringVar(&fch.version, "version", "", "The specific version of a chart. Without this, the latest version is fetched.")
 	f.StringVar(&fch.keyring, "keyring", defaultKeyring(), "The keyring containing public keys.")
 	f.StringVarP(&fch.destdir, "destination", "d", ".", "The location to write the chart. If this and tardir are specified, tardir is appended to this.")
+	bindHomeFlag(f, &fch.home)
 
 	return cmd
 }
@@ -92,7 +94,7 @@ func newFetchCmd(out io.Writer) *cobra.Command {
 func (f *fetchCmd) run() error {
 	pname := f.chartRef
 	c := downloader.ChartDownloader{
-		HelmHome: helmpath.Home(homePath()),
+		HelmHome: f.home,
 		Out:      f.out,
 		Keyring:  f.keyring,
 		Verify:   downloader.VerifyNever,

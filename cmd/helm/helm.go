@@ -39,7 +39,6 @@ const (
 )
 
 var (
-	helmHome    string
 	tillerHost  string
 	kubeContext string
 )
@@ -79,13 +78,8 @@ func newRootCmd(out io.Writer) *cobra.Command {
 			teardown()
 		},
 	}
-	home := os.Getenv(homeEnvVar)
-	if home == "" {
-		home = "$HOME/.helm"
-	}
 	thost := os.Getenv(hostEnvVar)
 	p := cmd.PersistentFlags()
-	p.StringVar(&helmHome, "home", home, "location of your Helm config. Overrides $HELM_HOME")
 	p.StringVar(&tillerHost, "host", thost, "address of tiller. Overrides $HELM_HOST")
 	p.StringVar(&kubeContext, "kube-context", "", "name of the kubeconfig context to use")
 	p.BoolVarP(&flagDebug, "debug", "", false, "enable verbose output")
@@ -175,10 +169,6 @@ func prettyError(err error) error {
 	// could do is throw an interface on the lib that would let us get back
 	// the desc. Instead, we have to pass ALL errors through this.
 	return errors.New(grpc.ErrorDesc(err))
-}
-
-func homePath() string {
-	return os.ExpandEnv(helmHome)
 }
 
 // getKubeClient is a convenience method for creating kubernetes config and client

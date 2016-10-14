@@ -35,16 +35,11 @@ import (
 
 func TestDependencyUpdateCmd(t *testing.T) {
 	// Set up a testing helm home
-	oldhome := helmHome
 	hh, err := tempHelmHome(t)
 	if err != nil {
 		t.Fatal(err)
 	}
-	helmHome = hh
-	defer func() {
-		os.RemoveAll(hh)
-		helmHome = oldhome
-	}()
+	defer os.RemoveAll(hh)
 
 	srv := repotest.NewServer(hh)
 	defer srv.Stop()

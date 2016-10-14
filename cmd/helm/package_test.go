@@ -97,10 +97,7 @@ func TestPackage(t *testing.T) {
 	}
 
 	ensureTestHome(helmpath.Home(tmp), t)
-	oldhome := homePath()
-	helmHome = tmp
 	defer func() {
-		helmHome = oldhome
 		os.Chdir(origDir)
 		os.RemoveAll(tmp)
 	}()
@@ -113,6 +110,8 @@ func TestPackage(t *testing.T) {
 		if v, ok := tt.flags["keyring"]; ok && len(v) > 0 {
 			tt.flags["keyring"] = filepath.Join(origDir, v)
 		}
+
+		c.Flags().Set("home", tmp)
 
 		setFlags(c, tt.flags)
 		re := regexp.MustCompile(tt.expect)

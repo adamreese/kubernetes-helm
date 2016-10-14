@@ -66,8 +66,6 @@ func newDependencyUpdateCmd(out io.Writer) *cobra.Command {
 				return err
 			}
 
-			duc.helmhome = helmpath.Home(homePath())
-
 			return duc.run()
 		},
 	}
@@ -75,6 +73,7 @@ func newDependencyUpdateCmd(out io.Writer) *cobra.Command {
 	f := cmd.Flags()
 	f.BoolVar(&duc.verify, "verify", false, "Verify the packages against signatures.")
 	f.StringVar(&duc.keyring, "keyring", defaultKeyring(), "The keyring containing public keys.")
+	bindHomeFlag(f, &duc.helmhome)
 
 	return cmd
 }

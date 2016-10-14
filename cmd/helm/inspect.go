@@ -23,6 +23,7 @@ import (
 	"github.com/ghodss/yaml"
 	"github.com/spf13/cobra"
 
+	"k8s.io/helm/cmd/helm/helmpath"
 	"k8s.io/helm/pkg/chartutil"
 	"k8s.io/helm/pkg/helm"
 )
@@ -51,6 +52,7 @@ type inspectCmd struct {
 	keyring   string
 	out       io.Writer
 	client    helm.Interface
+	home      helmpath.Home
 	version   string
 }
 
@@ -75,7 +77,7 @@ func newInspectCmd(c helm.Interface, out io.Writer) *cobra.Command {
 			if err := checkArgsLength(len(args), "chart name"); err != nil {
 				return err
 			}
-			cp, err := locateChartPath(args[0], insp.version, insp.verify, insp.keyring)
+			cp, err := locateChartPath(args[0], insp.version, insp.verify, insp.keyring, insp.home)
 			if err != nil {
 				return err
 			}
@@ -90,7 +92,7 @@ func newInspectCmd(c helm.Interface, out io.Writer) *cobra.Command {
 		Long:  inspectValuesDesc,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			insp.output = valuesOnly
-			cp, err := locateChartPath(args[0], insp.version, insp.verify, insp.keyring)
+			cp, err := locateChartPath(args[0], insp.version, insp.verify, insp.keyring, insp.home)
 			if err != nil {
 				return err
 			}
@@ -105,7 +107,7 @@ func newInspectCmd(c helm.Interface, out io.Writer) *cobra.Command {
 		Long:  inspectChartDesc,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			insp.output = chartOnly
-			cp, err := locateChartPath(args[0], insp.version, insp.verify, insp.keyring)
+			cp, err := locateChartPath(args[0], insp.version, insp.verify, insp.keyring, insp.home)
 			if err != nil {
 				return err
 			}

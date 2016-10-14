@@ -68,13 +68,10 @@ func TestSearchCmd(t *testing.T) {
 		},
 	}
 
-	oldhome := helmHome
-	helmHome = "testdata/helmhome"
-	defer func() { helmHome = oldhome }()
-
 	for _, tt := range tests {
 		buf := bytes.NewBuffer(nil)
 		cmd := newSearchCmd(buf)
+		tt.flags = append(tt.flags, "--home", "testdata/helmhome")
 		cmd.ParseFlags(tt.flags)
 		if err := cmd.RunE(cmd, tt.args); err != nil {
 			if tt.fail {

@@ -53,10 +53,10 @@ func newRepoUpdateCmd(out io.Writer) *cobra.Command {
 		Short:   "update information on available charts in the chart repositories",
 		Long:    updateDesc,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			u.home = helmpath.Home(homePath())
 			return u.run()
 		},
 	}
+	bindHomeFlag(cmd.Flags(), &u.home)
 	return cmd
 }
 

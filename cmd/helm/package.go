@@ -63,7 +63,6 @@ func newPackageCmd(client helm.Interface, out io.Writer) *cobra.Command {
 		Short: "package a chart directory into a chart archive",
 		Long:  packageDesc,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			pkg.home = helmpath.Home(homePath())
 			if len(args) == 0 {
 				return fmt.Errorf("This command needs at least one argument, the path to the chart.")
 			}
@@ -90,6 +89,7 @@ func newPackageCmd(client helm.Interface, out io.Writer) *cobra.Command {
 	f.BoolVar(&pkg.sign, "sign", false, "use a PGP private key to sign this package")
 	f.StringVar(&pkg.key, "key", "", "the name of the key to use when signing. Used if --sign is true.")
 	f.StringVar(&pkg.keyring, "keyring", defaultKeyring(), "the location of a public keyring")
+	bindHomeFlag(f, &pkg.home)
 
 	return cmd
 }

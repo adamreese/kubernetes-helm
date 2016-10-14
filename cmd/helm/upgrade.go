@@ -25,6 +25,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"k8s.io/helm/cmd/helm/helmpath"
 	"k8s.io/helm/pkg/helm"
 	"k8s.io/helm/pkg/storage/driver"
 )
@@ -55,10 +56,10 @@ type upgradeCmd struct {
 	install      bool
 	namespace    string
 	version      string
+	home         helmpath.Home
 }
 
 func newUpgradeCmd(client helm.Interface, out io.Writer) *cobra.Command {
-
 	upgrade := &upgradeCmd{
 		out:    out,
 		client: client,
@@ -93,12 +94,13 @@ func newUpgradeCmd(client helm.Interface, out io.Writer) *cobra.Command {
 	f.BoolVarP(&upgrade.install, "install", "i", false, "if a release by this name doesn't already exist, run an install")
 	f.StringVar(&upgrade.namespace, "namespace", "default", "the namespace to install the release into (only used if --install is set)")
 	f.StringVar(&upgrade.version, "version", "", "specify the exact chart version to use. If this is not specified, the latest version is used.")
+	bindHomeFlag(f, &upgrade.home)
 
 	return cmd
 }
 
 func (u *upgradeCmd) run() error {
-	chartPath, err := locateChartPath(u.chart, u.version, u.verify, u.keyring)
+	chartPath, err := locateChartPath(u.chart, u.version, u.verify, u.keyring, u.home)
 	if err != nil {
 		return err
 	}

@@ -14,32 +14,20 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package main
+package main // import "k8s.io/helm/cmd/helm"
 
 import (
-	"fmt"
-	"io"
+	"os"
+
+	"github.com/spf13/pflag"
 
 	"k8s.io/helm/cmd/helm/helmpath"
-
-	"github.com/spf13/cobra"
 )
 
-var longHomeHelp = `
-This command displays the location of HELM_HOME. This is where
-any helm configuration files live.
-`
-
-func newHomeCmd(out io.Writer) *cobra.Command {
-	var home helmpath.Home
-	cmd := &cobra.Command{
-		Use:   "home",
-		Short: "displays the location of HELM_HOME",
-		Long:  longHomeHelp,
-		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Fprintf(out, "%s\n", home)
-		},
+func bindHomeFlag(flags *pflag.FlagSet, target *helmpath.Home) {
+	home := os.Getenv(homeEnvVar)
+	if home == "" {
+		home = "$HOME/.helm"
 	}
-	bindHomeFlag(cmd.Flags(), &home)
-	return cmd
+	flags.StringVar((*string)(target), "home", home, "location of your Helm config. Overrides $HELM_HOME")
 }

@@ -46,14 +46,12 @@ func newRepoAddCmd(out io.Writer) *cobra.Command {
 			if err := checkArgsLength(len(args), "name for the chart repository", "the url of the chart repository"); err != nil {
 				return err
 			}
-
 			add.name = args[0]
 			add.url = args[1]
-			add.home = helmpath.Home(homePath())
-
 			return add.run()
 		},
 	}
+	bindHomeFlag(cmd.Flags(), &add.home)
 	return cmd
 }
 

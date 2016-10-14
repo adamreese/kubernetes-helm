@@ -30,12 +30,7 @@ func TestFetchCmd(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	old := homePath()
-	helmHome = hh
-	defer func() {
-		helmHome = old
-		os.RemoveAll(hh)
-	}()
+	defer os.RemoveAll(hh)
 
 	// all flags will get "--home=TMDIR -d outdir" appended.
 	tests := []struct {
@@ -117,7 +112,7 @@ func TestFetchCmd(t *testing.T) {
 
 		buf := bytes.NewBuffer(nil)
 		cmd := newFetchCmd(buf)
-		tt.flags = append(tt.flags, "-d", outdir)
+		tt.flags = append(tt.flags, "-d", outdir, "--home", string(hh))
 		cmd.ParseFlags(tt.flags)
 		if err := cmd.RunE(cmd, []string{tt.chart}); err != nil {
 			if tt.fail {
