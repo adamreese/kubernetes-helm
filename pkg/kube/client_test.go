@@ -22,19 +22,87 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"os"
 	"strings"
 	"testing"
 
+	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/meta"
+	"k8s.io/kubernetes/pkg/api/testapi"
 	"k8s.io/kubernetes/pkg/api/unversioned"
-	api "k8s.io/kubernetes/pkg/api/v1"
+	"k8s.io/kubernetes/pkg/api/v1"
+	"k8s.io/kubernetes/pkg/apis/extensions"
+	"k8s.io/kubernetes/pkg/client/typed/dynamic"
 	"k8s.io/kubernetes/pkg/client/unversioned/fake"
 	"k8s.io/kubernetes/pkg/kubectl/resource"
 	"k8s.io/kubernetes/pkg/runtime"
 )
 
-func TestUpdateResource(t *testing.T) {
+func defaultHeader() http.Header {
+	header := http.Header{}
+	header.Set("Content-Type", runtime.ContentTypeJSON)
+	return header
+}
 
+func TestUpdateFull(t *testing.T) {
+	labels := map[string]string{"app": "foo"}
+
+	deployment := extensions.Deployment{
+		ObjectMeta: api.ObjectMeta{
+			Name:   "abc",
+			Labels: labels,
+		},
+		Spec: extensions.DeploymentSpec{
+			Replicas: 1,
+			Selector: &unversioned.LabelSelector{MatchLabels: labels},
+			Template: api.PodTemplateSpec{
+				ObjectMeta: api.ObjectMeta{
+					Labels: labels,
+				},
+				Spec: api.PodSpec{
+					Containers: []api.Container{{Name: "app-v4", Image: "abc/app:v4"}},
+				},
+			},
+		},
+	}
+
+	original, err := runtime.Encode(testapi.Extensions.Codec(), &deployment)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b := bytes.NewBuffer(original)
+
+	deployment.Spec.Template.Spec.Containers[0].Image = "abc/app:v5"
+	modified, err := runtime.Encode(testapi.Extensions.Codec(), &deployment)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b2 := bytes.NewBuffer(modified)
+
+	c := New(nil)
+	c.ClientForMapping = func(mapping *meta.RESTMapping) (resource.RESTClient, error) {
+		return &fake.RESTClient{
+			NegotiatedSerializer: dynamic.ContentConfig().NegotiatedSerializer,
+			Client: fake.CreateHTTPClient(func(req *http.Request) (*http.Response, error) {
+				switch p, m := req.URL.Path, req.Method; {
+				case p == "/namespaces/default/deployments/abc" && m == http.MethodGet:
+					return &http.Response{StatusCode: http.StatusCreated, Header: defaultHeader(), Body: ioutil.NopCloser(bytes.NewBuffer(original))}, nil
+				case p == "/namespaces/default/deployments/abc" && m == http.MethodPatch:
+					return &http.Response{StatusCode: http.StatusCreated, Header: defaultHeader(), Body: ioutil.NopCloser(bytes.NewBuffer(modified))}, nil
+				default:
+					t.Fatalf("unexpected request: %#v\n%#v", req.URL, req)
+					return nil, nil
+				}
+			}),
+		}, nil
+	}
+
+	if err := c.Update(api.NamespaceDefault, b, b2); err != nil {
+		t.Errorf("Expected success, got failure on update: %v", err)
+	}
+}
+
+func TestUpdateResource(t *testing.T) {
 	tests := []struct {
 		name       string
 		namespace  string
@@ -66,6 +134,12 @@ func TestUpdateResource(t *testing.T) {
 }
 
 func TestPerform(t *testing.T) {
+	guestbook, err := os.Open("testdata/guestbook.yaml")
+	if err != nil {
+		t.Fatalf("could not read ./testdata/guestbook.yaml: %v", err)
+	}
+	defer guestbook.Close()
+
 	tests := []struct {
 		name       string
 		namespace  string
@@ -77,7 +151,7 @@ func TestPerform(t *testing.T) {
 		{
 			name:      "Valid input",
 			namespace: "test",
-			reader:    strings.NewReader(guestbookManifest),
+			reader:    guestbook,
 			count:     6,
 		}, {
 			name:       "Empty manifests",
@@ -122,9 +196,16 @@ func TestPerform(t *testing.T) {
 
 func TestReal(t *testing.T) {
 	t.Skip("This is a live test, comment this line to run")
+
+	guestbook, err := os.Open("testdata/guestbook.yaml")
+	if err != nil {
+		t.Fatalf("could not read ./testdata/guestbook.yaml: %v", err)
+	}
+	defer guestbook.Close()
+
 	c := New(nil)
 	c.IncludeThirdPartyAPIs = false
-	if err := c.Create("test", strings.NewReader(guestbookManifest)); err != nil {
+	if err := c.Create("test", guestbook); err != nil {
 		t.Fatal(err)
 	}
 
@@ -171,134 +252,10 @@ subsets:
       - port: 9376
 `
 
-const guestbookManifest = `
-apiVersion: v1
-kind: Service
-metadata:
-  name: redis-master
-  labels:
-    app: redis
-    tier: backend
-    role: master
-spec:
-  ports:
-  - port: 6379
-    targetPort: 6379
-  selector:
-    app: redis
-    tier: backend
-    role: master
----
-apiVersion: extensions/v1beta1
-kind: Deployment
-metadata:
-  name: redis-master
-spec:
-  replicas: 1
-  template:
-    metadata:
-      labels:
-        app: redis
-        role: master
-        tier: backend
-    spec:
-      containers:
-      - name: master
-        image: gcr.io/google_containers/redis:e2e  # or just image: redis
-        resources:
-          requests:
-            cpu: 100m
-            memory: 100Mi
-        ports:
-        - containerPort: 6379
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: redis-slave
-  labels:
-    app: redis
-    tier: backend
-    role: slave
-spec:
-  ports:
-    # the port that this service should serve on
-  - port: 6379
-  selector:
-    app: redis
-    tier: backend
-    role: slave
----
-apiVersion: extensions/v1beta1
-kind: Deployment
-metadata:
-  name: redis-slave
-spec:
-  replicas: 2
-  template:
-    metadata:
-      labels:
-        app: redis
-        role: slave
-        tier: backend
-    spec:
-      containers:
-      - name: slave
-        image: gcr.io/google_samples/gb-redisslave:v1
-        resources:
-          requests:
-            cpu: 100m
-            memory: 100Mi
-        env:
-        - name: GET_HOSTS_FROM
-          value: dns
-        ports:
-        - containerPort: 6379
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: frontend
-  labels:
-    app: guestbook
-    tier: frontend
-spec:
-  ports:
-  - port: 80
-  selector:
-    app: guestbook
-    tier: frontend
----
-apiVersion: extensions/v1beta1
-kind: Deployment
-metadata:
-  name: frontend
-spec:
-  replicas: 3
-  template:
-    metadata:
-      labels:
-        app: guestbook
-        tier: frontend
-    spec:
-      containers:
-      - name: php-redis
-        image: gcr.io/google-samples/gb-frontend:v4
-        resources:
-          requests:
-            cpu: 100m
-            memory: 100Mi
-        env:
-        - name: GET_HOSTS_FROM
-          value: dns
-        ports:
-        - containerPort: 80
-`
-
 func createFakePod(name string, labels map[string]string) runtime.Object {
 	objectMeta := createObjectMeta(name, labels)
 
-	object := &api.Pod{
+	object := &v1.Pod{
 		ObjectMeta: objectMeta,
 	}
 
@@ -334,8 +291,8 @@ func createFakeInfo(name string, labels map[string]string) *resource.Info {
 	return info
 }
 
-func createObjectMeta(name string, labels map[string]string) api.ObjectMeta {
-	objectMeta := api.ObjectMeta{Name: name, Namespace: "default"}
+func createObjectMeta(name string, labels map[string]string) v1.ObjectMeta {
+	objectMeta := v1.ObjectMeta{Name: name, Namespace: "default"}
 
 	if labels != nil {
 		objectMeta.Labels = labels
