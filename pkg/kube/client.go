@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"reflect"
 	"strings"
 	"time"
 
@@ -36,8 +35,6 @@ import (
 	cmdutil "k8s.io/kubernetes/pkg/kubectl/cmd/util"
 	"k8s.io/kubernetes/pkg/kubectl/resource"
 	"k8s.io/kubernetes/pkg/runtime"
-	"k8s.io/kubernetes/pkg/util/strategicpatch"
-	"k8s.io/kubernetes/pkg/util/yaml"
 	"k8s.io/kubernetes/pkg/watch"
 )
 
@@ -302,36 +299,18 @@ func deleteResource(info *resource.Info) error {
 }
 
 func updateResource(target *resource.Info, currentObj runtime.Object) error {
-
 	encoder := api.Codecs.LegacyCodec(registered.EnabledVersions()...)
-	originalSerialization, err := runtime.Encode(encoder, currentObj)
-	if err != nil {
-		return err
-	}
 
-	editedSerialization, err := runtime.Encode(encoder, target.Object)
-	if err != nil {
+	patch, err := calculatePatch(currentObj, target.Object, encoder)
+	switch {
+	case err != nil:
 		return err
-	}
-
-	originalJS, err := yaml.ToJSON(originalSerialization)
-	if err != nil {
-		return err
-	}
-
-	editedJS, err := yaml.ToJSON(editedSerialization)
-	if err != nil {
-		return err
-	}
-
-	if reflect.DeepEqual(originalJS, editedJS) {
+	case patch == nil:
 		return ErrAlreadyExists{target.Name}
 	}
 
-	patch, err := strategicpatch.CreateStrategicMergePatch(originalJS, editedJS, currentObj)
-	if err != nil {
-		return err
-	}
+	fmt.Println("PATCH:")
+	fmt.Println(string(patch))
 
 	// send patch to server
 	helper := resource.NewHelper(target.Client, target.Mapping)
