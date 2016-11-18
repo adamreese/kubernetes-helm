@@ -33,38 +33,6 @@ import (
 	"k8s.io/kubernetes/pkg/runtime"
 )
 
-func TestUpdateResource(t *testing.T) {
-
-	tests := []struct {
-		name       string
-		namespace  string
-		modified   *resource.Info
-		currentObj runtime.Object
-		err        bool
-		errMessage string
-	}{
-		{
-			name:       "no changes when updating resources",
-			modified:   createFakeInfo("nginx", nil),
-			currentObj: createFakePod("nginx", nil),
-			err:        true,
-			errMessage: "Looks like there are no changes for nginx",
-		},
-		//{
-		//name:       "valid update input",
-		//modified:   createFakeInfo("nginx", map[string]string{"app": "nginx"}),
-		//currentObj: createFakePod("nginx", nil),
-		//},
-	}
-
-	for _, tt := range tests {
-		err := updateResource(tt.modified, tt.currentObj)
-		if err != nil && err.Error() != tt.errMessage {
-			t.Errorf("%q. expected error message: %v, got %v", tt.name, tt.errMessage, err)
-		}
-	}
-}
-
 func TestPerform(t *testing.T) {
 	tests := []struct {
 		name       string

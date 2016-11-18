@@ -22,12 +22,10 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"strings"
 	"time"
 
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/errors"
-	"k8s.io/kubernetes/pkg/apimachinery/registered"
 	"k8s.io/kubernetes/pkg/apis/batch"
 	"k8s.io/kubernetes/pkg/client/unversioned"
 	"k8s.io/kubernetes/pkg/client/unversioned/clientcmd"
@@ -90,7 +88,9 @@ func (c *Client) Create(namespace string, reader io.Reader) error {
 	if err := c.ensureNamespace(namespace); err != nil {
 		return err
 	}
-	return perform(c, namespace, reader, createResource)
+	return perform(c, namespace, reader, func(info *resource.Info) error {
+		return createResource(info, c.JSONEncoder())
+	})
 }
 
 func (c *Client) newBuilder(namespace string, reader io.Reader) *resource.Builder {
@@ -162,65 +162,7 @@ func (c *Client) Get(namespace string, reader io.Reader) (string, error) {
 //
 // Namespace will set the namespaces
 func (c *Client) Update(namespace string, currentReader, targetReader io.Reader) error {
-	currentInfos, err := c.newBuilder(namespace, currentReader).Do().Infos()
-	if err != nil {
-		return fmt.Errorf("failed decoding reader into objects: %s", err)
-	}
-
-	target := c.newBuilder(namespace, targetReader).Do()
-	if target.Err() != nil {
-		return fmt.Errorf("failed decoding reader into objects: %s", target.Err())
-	}
-
-	targetInfos := []*resource.Info{}
-	updateErrors := []string{}
-
-	err = target.Visit(func(info *resource.Info, err error) error {
-		targetInfos = append(targetInfos, info)
-		if err != nil {
-			return err
-		}
-
-		helper := resource.NewHelper(info.Client, info.Mapping)
-		if _, err := helper.Get(info.Namespace, info.Name, info.Export); err != nil {
-			if !errors.IsNotFound(err) {
-				return fmt.Errorf("Could not get information about the resource: err: %s", err)
-			}
-
-			// Since the resource does not exist, create it.
-			if err := createResource(info); err != nil {
-				return fmt.Errorf("failed to create resource: %s", err)
-			}
-
-			kind := info.Mapping.GroupVersionKind.Kind
-			log.Printf("Created a new %s called %s\n", kind, info.Name)
-			return nil
-		}
-
-		currentObj, err := getCurrentObject(info, currentInfos)
-		if err != nil {
-			return err
-		}
-
-		if err := updateResource(info, currentObj); err != nil {
-			if alreadyExistErr, ok := err.(ErrAlreadyExists); ok {
-				log.Printf(alreadyExistErr.errorMsg)
-			} else {
-				log.Printf("error updating the resource %s:\n\t %v", info.Name, err)
-				updateErrors = append(updateErrors, err.Error())
-			}
-		}
-
-		return nil
-	})
-
-	if err != nil {
-		return err
-	} else if len(updateErrors) != 0 {
-		return fmt.Errorf(strings.Join(updateErrors, " && "))
-	}
-	deleteUnwantedResources(currentInfos, targetInfos)
-	return nil
+	return Update(c, namespace, currentReader, targetReader)
 }
 
 // Delete deletes kubernetes resources from an io.reader
@@ -228,22 +170,7 @@ func (c *Client) Update(namespace string, currentReader, targetReader io.Reader)
 // Namespace will set the namespace
 func (c *Client) Delete(namespace string, reader io.Reader) error {
 	return perform(c, namespace, reader, func(info *resource.Info) error {
-		log.Printf("Starting delete for %s %s", info.Name, info.Mapping.GroupVersionKind.Kind)
-
-		reaper, err := c.Reaper(info.Mapping)
-		if err != nil {
-			// If there is no reaper for this resources, delete it.
-			if kubectl.IsNoSuchReaperError(err) {
-				err := resource.NewHelper(info.Client, info.Mapping).Delete(info.Namespace, info.Name)
-				return skipIfNotFound(err)
-			}
-
-			return err
-		}
-
-		log.Printf("Using reaper for deleting %s", info.Name)
-		err = reaper.Stop(info.Namespace, info.Name, 0, nil)
-		return skipIfNotFound(err)
+		return deleteResource(c, info)
 	})
 }
 
@@ -289,33 +216,35 @@ func perform(c *Client, namespace string, reader io.Reader, fn ResourceActorFunc
 	return nil
 }
 
-func createResource(info *resource.Info) error {
-	_, err := resource.NewHelper(info.Client, info.Mapping).Create(info.Namespace, true, info.Object)
-	return err
-}
-
-func deleteResource(info *resource.Info) error {
-	return resource.NewHelper(info.Client, info.Mapping).Delete(info.Namespace, info.Name)
-}
-
-func updateResource(target *resource.Info, currentObj runtime.Object) error {
-	encoder := api.Codecs.LegacyCodec(registered.EnabledVersions()...)
-
-	patch, err := calculatePatch(currentObj, target.Object, encoder)
-	switch {
-	case err != nil:
+func createResource(info *resource.Info, encoder runtime.Encoder) error {
+	if err := kubectl.CreateApplyAnnotation(info, encoder); err != nil {
 		return err
-	case patch == nil:
-		return ErrAlreadyExists{target.Name}
 	}
 
-	fmt.Println("PATCH:")
-	fmt.Println(string(patch))
+	if _, err := resource.NewHelper(info.Client, info.Mapping).Create(info.Namespace, true, info.Object); err != nil {
+		return fmt.Errorf("failed to create resource: %s", err)
+	}
 
-	// send patch to server
-	helper := resource.NewHelper(target.Client, target.Mapping)
-	_, err = helper.Patch(target.Namespace, target.Name, api.StrategicMergePatchType, patch)
-	return err
+	kind := info.Mapping.GroupVersionKind.Kind
+	log.Printf("Created a new %s called %s\n", kind, info.Name)
+	return nil
+}
+
+func deleteResource(c *Client, info *resource.Info) error {
+	log.Printf("Starting delete for %s %s", info.Name, info.Mapping.GroupVersionKind.Kind)
+	reaper, err := c.Reaper(info.Mapping)
+	if err != nil {
+		// If there is no reaper for this resources, delete it.
+		if kubectl.IsNoSuchReaperError(err) {
+			err := resource.NewHelper(info.Client, info.Mapping).Delete(info.Namespace, info.Name)
+			return skipIfNotFound(err)
+		}
+		return err
+	}
+
+	log.Printf("Using reaper for deleting %s", info.Name)
+	err = reaper.Stop(info.Namespace, info.Name, 0, nil)
+	return skipIfNotFound(err)
 }
 
 func watchUntilReady(info *resource.Info) error {
@@ -396,22 +325,14 @@ func (c *Client) ensureNamespace(namespace string) error {
 	return nil
 }
 
-func deleteUnwantedResources(currentInfos, targetInfos []*resource.Info) {
+func deletedResources(currentInfos, targetInfos []*resource.Info) []*resource.Info {
+	var deleted []*resource.Info
 	for _, cInfo := range currentInfos {
 		if _, ok := findMatchingInfo(cInfo, targetInfos); !ok {
-			log.Printf("Deleting %s...", cInfo.Name)
-			if err := deleteResource(cInfo); err != nil {
-				log.Printf("Failed to delete %s, err: %s", cInfo.Name, err)
-			}
+			deleted = append(deleted, cInfo)
 		}
 	}
-}
-
-func getCurrentObject(target *resource.Info, infos []*resource.Info) (runtime.Object, error) {
-	if found, ok := findMatchingInfo(target, infos); ok {
-		return found.Mapping.ConvertToVersion(found.Object, found.Mapping.GroupVersionKind.GroupVersion())
-	}
-	return nil, fmt.Errorf("No resource with the name %s found.", target.Name)
+	return deleted
 }
 
 // isMatchingInfo returns true if infos match on Name and Kind.
