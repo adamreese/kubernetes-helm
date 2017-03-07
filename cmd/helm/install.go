@@ -198,7 +198,7 @@ func (i *installCmd) run() error {
 			return err
 		}
 		// Print the final name so the user knows what the final name of the release is.
-		fmt.Printf("FINAL NAME: %s\n", i.name)
+		// fmt.Printf("FINAL NAME: %s\n", i.name)
 	}
 
 	// Check chart requirements to make sure all dependencies are present in /charts
@@ -307,11 +307,12 @@ func (i *installCmd) printRelease(rel *release.Release) {
 	if rel == nil {
 		return
 	}
-	// TODO: Switch to text/template like everything else.
-	fmt.Fprintf(i.out, "NAME:   %s\n", rel.Name)
 	if flagDebug {
 		printRelease(i.out, rel)
+		return
 	}
+	// TODO: Switch to text/template like everything else.
+	fmt.Fprintf(i.out, "NAME:   %s\n", rel.Name)
 }
 
 // locateChartPath looks for a chart directory in known places, and returns either the full path or an error.
