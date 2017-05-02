@@ -49,6 +49,7 @@ func (c *Client) waitForResources(timeout time.Duration, created Result) error {
 	cs, _ := c.ClientSet()
 	client := versionedClientsetForDeployment(cs)
 	return wait.Poll(2*time.Second, timeout, func() (bool, error) {
+		log.Println("polling")
 		pods := []v1.Pod{}
 		services := []v1.Service{}
 		pvc := []v1.PersistentVolumeClaim{}
@@ -138,6 +139,7 @@ func (c *Client) waitForResources(timeout time.Duration, created Result) error {
 
 func podsReady(pods []v1.Pod) bool {
 	for _, pod := range pods {
+		log.Printf("checking pod[%s] phase[%s]", pod.Name, pod.Status.Phase)
 		if !v1.IsPodReady(&pod) {
 			return false
 		}
@@ -147,6 +149,7 @@ func podsReady(pods []v1.Pod) bool {
 
 func servicesReady(svc []v1.Service) bool {
 	for _, s := range svc {
+		log.Printf("checking service[%s] clusterIP[%s] type[%s]", s.Name, s.Spec.Type, s.Spec.ClusterIP)
 		// Make sure the service is not explicitly set to "None" before checking the IP
 		if s.Spec.ClusterIP != v1.ClusterIPNone && !v1.IsServiceIPSet(&s) {
 			return false
@@ -161,6 +164,7 @@ func servicesReady(svc []v1.Service) bool {
 
 func volumesReady(vols []v1.PersistentVolumeClaim) bool {
 	for _, v := range vols {
+		log.Printf("checking volume[%s] phase[%s]", v.Name, v.Status.Phase)
 		if v.Status.Phase != v1.ClaimBound {
 			return false
 		}
@@ -170,6 +174,12 @@ func volumesReady(vols []v1.PersistentVolumeClaim) bool {
 
 func deploymentsReady(deployments []deployment) bool {
 	for _, v := range deployments {
+		log.Printf("checking deployment[%s] readyReplicas[%d/%d] maxUnavailable[%d]",
+			v.deployment.Name,
+			v.replicaSets.Status.ReadyReplicas,
+			*v.deployment.Spec.Replicas,
+			deploymentutil.MaxUnavailable(*v.deployment),
+		)
 		if !(v.replicaSets.Status.ReadyReplicas >= *v.deployment.Spec.Replicas-deploymentutil.MaxUnavailable(*v.deployment)) {
 			return false
 		}
