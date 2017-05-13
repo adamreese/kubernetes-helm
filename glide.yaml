@@ -49,6 +49,9 @@ import:
 - package: github.com/chai2010/gettext-go
 - package: github.com/prometheus/client_golang
   version: v0.8.0
+- package: github.com/Sirupsen/logrus
+  version: ~0.11.5
+- package: github.com/x-cray/logrus-prefixed-formatter
 testImports:
 - package: github.com/stretchr/testify
   version: ^1.1.4

@@ -17,7 +17,6 @@ limitations under the License.
 package main // import "k8s.io/helm/cmd/tiller"
 
 import (
-	"log"
 	"net/http"
 
 	_ "net/http/pprof"

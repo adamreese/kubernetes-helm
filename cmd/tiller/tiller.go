@@ -18,19 +18,18 @@ package main // import "k8s.io/helm/cmd/tiller"
 
 import (
 	"crypto/tls"
-	"fmt"
 	"io/ioutil"
-	"log"
 	"net"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 
+	"github.com/Sirupsen/logrus"
 	goprom "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
-
+	prefixed "github.com/x-cray/logrus-prefixed-formatter"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 
@@ -107,10 +106,11 @@ func addFlags(flags *pflag.FlagSet) {
 	flags.StringVar(&caCertFile, "tls-ca-cert", tlsDefaultsFromEnv("tls-ca-cert"), "trust certificates signed by this CA")
 }
 
-func initLog() {
-	if enableTracing {
-		log.SetFlags(log.Lshortfile)
-	}
+var log *logrus.Entry
+
+func init() {
+	logrus.SetFormatter(new(prefixed.TextFormatter))
+	log = newLogger("main")
 }
 
 func main() {
@@ -119,9 +119,6 @@ func main() {
 		Short: "The Kubernetes Helm server.",
 		Long:  globalUsage,
 		Run:   start,
-		PreRun: func(_ *cobra.Command, _ []string) {
-			initLog()
-		},
 	}
 	addFlags(root.Flags())
 
@@ -130,11 +127,8 @@ func main() {
 	}
 }
 
-func newLogger(prefix string) *log.Logger {
-	if len(prefix) > 0 {
-		prefix = fmt.Sprintf("[%s] ", prefix)
-	}
-	return log.New(os.Stderr, prefix, log.Flags())
+func newLogger(pkg string) *logrus.Entry {
+	return logrus.WithField("prefix", pkg)
 }
 
 func start(c *cobra.Command, args []string) {

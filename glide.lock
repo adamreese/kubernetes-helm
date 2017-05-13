@@ -1,5 +1,5 @@
-hash: e323e66f9aba77578f7dcc0886e3117ebc373bc391374b2d5ddd293c276c8966
-updated: 2017-05-02T22:27:03.674351365-04:00
+hash: 497b9c28723317071f92b99b5fe76719386254d0ea016ce73ce6f66c3f4485df
+updated: 2017-05-12T18:03:05.207215036-07:00
 imports:
 - name: bitbucket.org/ww/goautoneg
   version: 75cd24fc2f2c2a2088577d12123ddee5f54e0675
@@ -172,12 +172,18 @@ imports:
   version: a48f46e0125cf60347eda24fccf1b09f1a0d681f
 - name: github.com/Masterminds/vcs
   version: 3084677c2c188840777bff30054f2b553729d329
+- name: github.com/mattn/go-colorable
+  version: 5411d3eea5978e6cdc258b30de592b60df6aba96
+- name: github.com/mattn/go-isatty
+  version: fc9e8d8ef48496124e79ae0df75490096eccf6fe
 - name: github.com/mattn/go-runewidth
   version: d6bea18f789704b5f83375793155289da36a3c7f
 - name: github.com/matttproud/golang_protobuf_extensions
   version: fc2b8d3a73c4867e51861bbdd5ae3c1f0869dd6a
   subpackages:
   - pbutil
+- name: github.com/mgutz/ansi
+  version: 9520e82c474b0a04dd04f8a40959027271bab992
 - name: github.com/mitchellh/go-wordwrap
   version: ad45545899c7b13c020ea92b2072220eefad42b8
 - name: github.com/naoina/go-stringutil
@@ -211,7 +217,7 @@ imports:
 - name: github.com/shurcooL/sanitized_anchor_name
   version: 10ef21a441db47d8b13ebcc5fd2310f636973c77
 - name: github.com/Sirupsen/logrus
-  version: 51fe59aca108dc5680109e7b2051cbdcfa5a253c
+  version: ba1b36c82c5e05c4f912a88eab0dcd91a171688f
 - name: github.com/spf13/cobra
   version: f62e98d28ab7ad31d707ba837a966378465c7b57
   subpackages:
@@ -224,6 +230,8 @@ imports:
   version: ded73eae5db7e7a0ef6f55aace87a2873c5d2b74
   subpackages:
   - codec
+- name: github.com/x-cray/logrus-prefixed-formatter
+  version: b310cb7c71b59393c2d82e6ccfb42cc6eceda902
 - name: golang.org/x/crypto
   version: d172538b2cfce0c13cee31e647d0367aa8cd2486
   subpackages:
@@ -469,7 +477,7 @@ imports:
   - util/integer
   - util/jsonpath
 - name: k8s.io/kubernetes
-  version: 477efc3cbe6a7effca06bd1452fa356e2201e1ee
+  version: 0480917b552be33e2dba47386e51decb1a211df6
   subpackages:
   - federation/apis/federation
   - federation/apis/federation/install
