@@ -26,6 +26,7 @@ import (
 
 	"github.com/ghodss/yaml"
 	"github.com/golang/protobuf/ptypes/timestamp"
+
 	"k8s.io/helm/pkg/proto/hapi/chart"
 )
 
@@ -141,16 +142,12 @@ func ReadValuesFile(filename string) (Values, error) {
 //	- Scalar values and arrays are replaced, maps are merged
 //	- A chart has access to all of the variables for it, as well as all of
 //		the values destined for its dependencies.
-func CoalesceValues(chrt *chart.Chart, vals *chart.Config) (Values, error) {
+func CoalesceValues(chrt *chart.Chart, vals map[string]interface{}) (Values, error) {
 	cvals := Values{}
 	// Parse values if not nil. We merge these at the top level because
 	// the passed-in values are in the same namespace as the parent chart.
 	if vals != nil {
-		evals, err := ReadValues([]byte(vals.Raw))
-		if err != nil {
-			return cvals, err
-		}
-		cvals, err = coalesce(chrt, evals)
+		cvals, err := coalesce(chrt, vals)
 		if err != nil {
 			return cvals, err
 		}
@@ -166,7 +163,12 @@ func CoalesceValues(chrt *chart.Chart, vals *chart.Config) (Values, error) {
 // This is a helper function for CoalesceValues.
 func coalesce(ch *chart.Chart, dest map[string]interface{}) (map[string]interface{}, error) {
 	var err error
-	dest, err = coalesceValues(ch, dest)
+	var evals Values
+	evals, err = ReadValues([]byte(ch.Values.Raw))
+	if err != nil {
+		return evals, err
+	}
+	dest, err = coalesceValues(evals, dest)
 	if err != nil {
 		return dest, err
 	}
@@ -264,21 +266,13 @@ func copyMap(src map[string]interface{}) map[string]interface{} {
 // coalesceValues builds up a values map for a particular chart.
 //
 // Values in v will override the values in the chart.
-func coalesceValues(c *chart.Chart, v map[string]interface{}) (map[string]interface{}, error) {
+func coalesceValues(c, v Values) (Values, error) {
 	// If there are no values in the chart, we just return the given values
-	if c.Values == nil || c.Values.Raw == "" {
+	if c == nil {
 		return v, nil
 	}
 
-	nv, err := ReadValues([]byte(c.Values.Raw))
-	if err != nil {
-		// On error, we return just the overridden values.
-		// FIXME: We should log this error. It indicates that the YAML data
-		// did not parse.
-		return v, fmt.Errorf("error reading default values (%s): %s", c.Values.Raw, err)
-	}
-
-	for key, val := range nv {
+	for key, val := range c {
 		if value, ok := v[key]; ok {
 			if value == nil {
 				// When the YAML value is null, we remove the value's key.
@@ -286,18 +280,18 @@ func coalesceValues(c *chart.Chart, v map[string]interface{}) (map[string]interf
 				// remove incompatible keys from any previous chart, file, or set values.
 				delete(v, key)
 			} else if dest, ok := value.(map[string]interface{}); ok {
-				// if v[key] is a table, merge nv's val table into v[key].
+				// if v[key] is a table, merge c's val table into v[key].
 				src, ok := val.(map[string]interface{})
 				if !ok {
 					log.Printf("warning: skipped value for %s: Not a table.", key)
 					continue
 				}
-				// Because v has higher precedence than nv, dest values override src
+				// Because v has higher precedence than c, dest values override src
 				// values.
 				coalesceTables(dest, src)
 			}
 		} else {
-			// If the key is not in v, copy it from nv.
+			// If the key is not in v, copy it from c.
 			v[key] = val
 		}
 	}
@@ -348,7 +342,7 @@ type ReleaseOptions struct {
 // remain in the codebase to stay SemVer compliant.
 //
 // In Helm 3.0, this will be changed to accept Capabilities as a fourth parameter.
-func ToRenderValues(chrt *chart.Chart, chrtVals *chart.Config, options ReleaseOptions) (Values, error) {
+func ToRenderValues(chrt *chart.Chart, chrtVals Values, options ReleaseOptions) (Values, error) {
 	caps := &Capabilities{APIVersions: DefaultVersionSet}
 	return ToRenderValuesCaps(chrt, chrtVals, options, caps)
 }
@@ -356,7 +350,7 @@ func ToRenderValues(chrt *chart.Chart, chrtVals *chart.Config, options ReleaseOp
 // ToRenderValuesCaps composes the struct from the data coming from the Releases, Charts and Values files
 //
 // This takes both ReleaseOptions and Capabilities to merge into the render values.
-func ToRenderValuesCaps(chrt *chart.Chart, chrtVals *chart.Config, options ReleaseOptions, caps *Capabilities) (Values, error) {
+func ToRenderValuesCaps(chrt *chart.Chart, chrtVals Values, options ReleaseOptions, caps *Capabilities) (Values, error) {
 
 	top := map[string]interface{}{
 		"Release": map[string]interface{}{
@@ -416,8 +410,7 @@ func (v Values) PathValue(ypath string) (interface{}, error) {
 	table := yps[:ypsLen-1]
 	st := strings.Join(table, ".")
 	// get the last element as a string key
-	key := yps[ypsLen-1:]
-	sk := string(key[0])
+	sk := yps[ypsLen-1:][0]
 	// get our table for table path
 	t, err := v.Table(st)
 	if err != nil {

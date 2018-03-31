@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/ghodss/yaml"
+
 	"k8s.io/helm/pkg/proto/hapi/chart"
 	"k8s.io/helm/pkg/version"
 )
@@ -132,7 +133,7 @@ func ProcessRequirementsConditions(reqs *Requirements, cvals Values) {
 	}
 	for _, r := range reqs.Dependencies {
 		var hasTrue, hasFalse bool
-		cond = string(r.Condition)
+		cond = r.Condition
 		// check for list
 		if len(cond) > 0 {
 			if strings.Contains(cond, ",") {
@@ -246,7 +247,7 @@ func getAliasDependency(charts []*chart.Chart, aliasChart *Dependency) *chart.Ch
 }
 
 // ProcessRequirementsEnabled removes disabled charts from dependencies
-func ProcessRequirementsEnabled(c *chart.Chart, v *chart.Config) error {
+func ProcessRequirementsEnabled(c *chart.Chart, v Values) error {
 	reqs, err := LoadRequirements(c)
 	if err != nil {
 		// if not just missing requirements file, return error
@@ -300,7 +301,6 @@ func ProcessRequirementsEnabled(c *chart.Chart, v *chart.Config) error {
 	if err != nil {
 		return err
 	}
-	cc := chart.Config{Raw: yvals}
 	// flag dependencies as enabled/disabled
 	ProcessRequirementsTags(reqs, cvals)
 	ProcessRequirementsConditions(reqs, cvals)
@@ -321,9 +321,10 @@ func ProcessRequirementsEnabled(c *chart.Chart, v *chart.Config) error {
 		}
 
 	}
+	cc := FromYaml(yvals)
 	// recursively call self to process sub dependencies
 	for _, t := range cd {
-		err := ProcessRequirementsEnabled(t, &cc)
+		err := ProcessRequirementsEnabled(t, cc)
 		// if its not just missing requirements file, return error
 		if nerr, ok := err.(ErrNoRequirementsFile); !ok && err != nil {
 			return nerr
@@ -387,11 +388,11 @@ func processImportValues(c *chart.Chart) error {
 		return err
 	}
 	// combine chart values and empty config to get Values
-	cvals, err := CoalesceValues(c, &chart.Config{})
+	cvals, err := CoalesceValues(c, nil)
 	if err != nil {
 		return err
 	}
-	b := make(map[string]interface{}, 0)
+	b := make(map[string]interface{})
 	// import values from each dependency if specified in import-values
 	for _, r := range reqs.Dependencies {
 		if len(r.ImportValues) > 0 {

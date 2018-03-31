@@ -24,8 +24,8 @@ import (
 	"text/template"
 
 	"github.com/golang/protobuf/ptypes/any"
-
 	kversion "k8s.io/apimachinery/pkg/version"
+
 	"k8s.io/helm/pkg/proto/hapi/chart"
 	"k8s.io/helm/pkg/timeconv"
 	"k8s.io/helm/pkg/version"
@@ -80,12 +80,6 @@ where:
   city: Basrah
   title: caliph
 `
-	overideValues := `
-name: Haroun
-where:
-  city: Baghdad
-  date: 809 CE
-`
 
 	c := &chart.Chart{
 		Metadata:  &chart.Metadata{Name: "test"},
@@ -101,7 +95,6 @@ where:
 			{TypeUrl: "scheherazade/shahryar.txt", Value: []byte("1,001 Nights")},
 		},
 	}
-	v := &chart.Config{Raw: overideValues}
 
 	o := ReleaseOptions{
 		Name:      "Seven Voyages",
@@ -115,6 +108,14 @@ where:
 		APIVersions:   DefaultVersionSet,
 		TillerVersion: version.GetVersionProto(),
 		KubeVersion:   &kversion.Info{Major: "1"},
+	}
+
+	v := map[string]interface{}{
+		"name": "Haroun",
+		"where": map[string]interface{}{
+			"city": "Baghdad",
+			"date": "810 CE",
+		},
 	}
 
 	res, err := ToRenderValuesCaps(c, v, o, caps)
@@ -152,8 +153,7 @@ where:
 		t.Error("Expected Capabilities to have a Kube version")
 	}
 
-	var vals Values
-	vals = res["Values"].(Values)
+	vals := res["Values"].(Values)
 
 	if vals["name"] != "Haroun" {
 		t.Errorf("Expected 'Haroun', got %q (%v)", vals["name"], vals)
@@ -308,7 +308,10 @@ func TestCoalesceValues(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	tvals := &chart.Config{Raw: testCoalesceValuesYaml}
+	tvals, err := ReadValues([]byte(testCoalesceValuesYaml))
+	if err != nil {
+		t.Fatalf("unexpected error: %s", err)
+	}
 
 	v, err := CoalesceValues(c, tvals)
 	if err != nil {

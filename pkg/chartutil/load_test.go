@@ -97,7 +97,7 @@ icon: https://example.com/64x64.png
 		t.Errorf("Expected number of templates == 2, got %d", len(c.Templates))
 	}
 
-	c, err = LoadFiles([]*BufferedFile{})
+	_, err = LoadFiles([]*BufferedFile{})
 	if err == nil {
 		t.Fatal("Expected err to be non-nil")
 	}
@@ -106,7 +106,7 @@ icon: https://example.com/64x64.png
 	}
 
 	// legacy check
-	c, err = LoadFiles([]*BufferedFile{
+	_, err = LoadFiles([]*BufferedFile{
 		{
 			Name: "values.toml",
 			Data: []byte{},
