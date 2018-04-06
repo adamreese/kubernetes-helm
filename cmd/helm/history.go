@@ -25,9 +25,9 @@ import (
 	"github.com/gosuri/uitable"
 	"github.com/spf13/cobra"
 
-	"k8s.io/helm/pkg/helm"
 	"k8s.io/helm/pkg/proto/hapi/chart"
 	"k8s.io/helm/pkg/proto/hapi/release"
+	"k8s.io/helm/pkg/releaseutil"
 	"k8s.io/helm/pkg/timeconv"
 )
 
@@ -61,28 +61,27 @@ type historyCmd struct {
 	max          int32
 	rls          string
 	out          io.Writer
-	helmc        helm.Interface
 	colWidth     uint
 	outputFormat string
 }
 
-func newHistoryCmd(c helm.Interface, w io.Writer) *cobra.Command {
-	his := &historyCmd{out: w, helmc: c}
+func newHistoryCmd(w io.Writer) *cobra.Command {
+	his := &historyCmd{out: w}
 
 	cmd := &cobra.Command{
 		Use:     "history [flags] RELEASE_NAME",
 		Long:    historyHelp,
 		Short:   "fetch release history",
 		Aliases: []string{"hist"},
-		PreRunE: func(_ *cobra.Command, _ []string) error { return setupConnection() },
 		RunE: func(cmd *cobra.Command, args []string) error {
-			switch {
-			case len(args) == 0:
+			if len(args) == 0 {
 				return errReleaseRequired
-			case his.helmc == nil:
-				his.helmc = newClient()
 			}
-			his.rls = args[0]
+			rls := args[0]
+			// if err := tiller.ValidateReleaseName(rls); err != nil {
+			// 	return err
+			// }
+			his.rls = rls
 			return his.run()
 		},
 	}
@@ -96,15 +95,23 @@ func newHistoryCmd(c helm.Interface, w io.Writer) *cobra.Command {
 }
 
 func (cmd *historyCmd) run() error {
-	r, err := cmd.helmc.ReleaseHistory(cmd.rls, helm.WithMaxHistory(cmd.max))
+	h, err := store.History(cmd.rls)
 	if err != nil {
-		return prettyError(err)
+		return err
 	}
-	if len(r.Releases) == 0 {
+
+	releaseutil.Reverse(h, releaseutil.SortByRevision)
+
+	var rls []*release.Release
+	for i := 0; i < min(len(h), int(cmd.max)); i++ {
+		rls = append(rls, h[i])
+	}
+
+	if len(rls) == 0 {
 		return nil
 	}
 
-	releaseHistory := getReleaseHistory(r.Releases)
+	releaseHistory := getReleaseHistory(rls)
 
 	var history []byte
 	var formattingError error
@@ -121,7 +128,7 @@ func (cmd *historyCmd) run() error {
 	}
 
 	if formattingError != nil {
-		return prettyError(formattingError)
+		return formattingError
 	}
 
 	fmt.Fprintln(cmd.out, string(history))
@@ -169,4 +176,11 @@ func formatChartname(c *chart.Chart) string {
 		return "MISSING"
 	}
 	return fmt.Sprintf("%s-%s", c.Metadata.Name, c.Metadata.Version)
+}
+
+func min(x, y int) int {
+	if x < y {
+		return x
+	}
+	return y
 }

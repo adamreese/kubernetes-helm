@@ -97,16 +97,6 @@ func loadPlugins(baseCmd *cobra.Command, out io.Writer) {
 			DisableFlagParsing: true,
 		}
 
-		if md.UseTunnel {
-			c.PreRunE = func(cmd *cobra.Command, args []string) error {
-				// Parse the parent flag, but not the local flags.
-				if _, err := processParent(cmd, args); err != nil {
-					return err
-				}
-				return setupConnection()
-			}
-		}
-
 		// TODO: Make sure a command with this name does not already exist.
 		baseCmd.AddCommand(c)
 	}

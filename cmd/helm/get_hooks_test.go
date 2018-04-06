@@ -42,6 +42,6 @@ func TestGetHooks(t *testing.T) {
 		},
 	}
 	runReleaseCases(t, tests, func(c *helm.FakeClient, out io.Writer) *cobra.Command {
-		return newGetHooksCmd(c, out)
+		return newGetHooksCmd(out)
 	})
 }

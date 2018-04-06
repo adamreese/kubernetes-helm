@@ -92,7 +92,7 @@ func updateCharts(repos []*repo.ChartRepository, out io.Writer, home helmpath.Ho
 		wg.Add(1)
 		go func(re *repo.ChartRepository) {
 			defer wg.Done()
-			if re.Config.Name == localRepository {
+			if re.Config.Name == "local" {
 				fmt.Fprintf(out, "...Skip %s chart repository\n", re.Config.Name)
 				return
 			}

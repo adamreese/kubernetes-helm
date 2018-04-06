@@ -41,7 +41,7 @@ func TestGetValuesCmd(t *testing.T) {
 		},
 	}
 	cmd := func(c *helm.FakeClient, out io.Writer) *cobra.Command {
-		return newGetValuesCmd(c, out)
+		return newGetValuesCmd(out)
 	}
 	runReleaseCases(t, tests, cmd)
 }

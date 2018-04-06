@@ -397,6 +397,10 @@ func validateManifest(c environment.KubeClient, ns string, manifest []byte) erro
 	return err
 }
 
+func ValidateReleaseName(releaseName string) error {
+	return ValidateReleaseName(releaseName)
+}
+
 func validateReleaseName(releaseName string) error {
 	if releaseName == "" {
 		return errMissingRelease

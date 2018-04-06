@@ -21,8 +21,6 @@ import (
 	"io"
 
 	"github.com/spf13/cobra"
-
-	"k8s.io/helm/pkg/helm"
 )
 
 const getHooksHelp = `
@@ -34,26 +32,20 @@ Hooks are formatted in YAML and separated by the YAML '---\n' separator.
 type getHooksCmd struct {
 	release string
 	out     io.Writer
-	client  helm.Interface
 	version int32
 }
 
-func newGetHooksCmd(client helm.Interface, out io.Writer) *cobra.Command {
-	ghc := &getHooksCmd{
-		out:    out,
-		client: client,
-	}
+func newGetHooksCmd(out io.Writer) *cobra.Command {
+	ghc := &getHooksCmd{out: out}
 	cmd := &cobra.Command{
-		Use:     "hooks [flags] RELEASE_NAME",
-		Short:   "download all hooks for a named release",
-		Long:    getHooksHelp,
-		PreRunE: func(_ *cobra.Command, _ []string) error { return setupConnection() },
+		Use:   "hooks [flags] RELEASE_NAME",
+		Short: "download all hooks for a named release",
+		Long:  getHooksHelp,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
 				return errReleaseRequired
 			}
 			ghc.release = args[0]
-			ghc.client = ensureHelmClient(ghc.client)
 			return ghc.run()
 		},
 	}
@@ -62,13 +54,13 @@ func newGetHooksCmd(client helm.Interface, out io.Writer) *cobra.Command {
 }
 
 func (g *getHooksCmd) run() error {
-	res, err := g.client.ReleaseContent(g.release, helm.ContentReleaseVersion(g.version))
+	rel, err := getRelease(g.release, g.version)
 	if err != nil {
 		fmt.Fprintln(g.out, g.release)
-		return prettyError(err)
+		return err
 	}
 
-	for _, hook := range res.Release.Hooks {
+	for _, hook := range rel.Hooks {
 		fmt.Fprintf(g.out, "---\n# %s\n%s", hook.Name, hook.Manifest)
 	}
 	return nil

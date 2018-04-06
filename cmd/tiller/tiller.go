@@ -97,7 +97,6 @@ var (
 )
 
 func main() {
-	// TODO: use spf13/cobra for tiller instead of flags
 	flag.Parse()
 
 	if *printVersion {

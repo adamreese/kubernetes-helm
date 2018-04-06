@@ -42,7 +42,7 @@ func TestGetCmd(t *testing.T) {
 	}
 
 	cmd := func(c *helm.FakeClient, out io.Writer) *cobra.Command {
-		return newGetCmd(c, out)
+		return newGetCmd(out)
 	}
 	runReleaseCases(t, tests, cmd)
 }

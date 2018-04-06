@@ -21,8 +21,6 @@ import (
 	"io"
 
 	"github.com/spf13/cobra"
-
-	"k8s.io/helm/pkg/helm"
 )
 
 var getManifestHelp = `
@@ -36,28 +34,20 @@ charts, those resources will also be included in the manifest.
 type getManifestCmd struct {
 	release string
 	out     io.Writer
-	client  helm.Interface
 	version int32
 }
 
-func newGetManifestCmd(client helm.Interface, out io.Writer) *cobra.Command {
-	get := &getManifestCmd{
-		out:    out,
-		client: client,
-	}
+func newGetManifestCmd(out io.Writer) *cobra.Command {
+	get := &getManifestCmd{out: out}
 	cmd := &cobra.Command{
-		Use:     "manifest [flags] RELEASE_NAME",
-		Short:   "download the manifest for a named release",
-		Long:    getManifestHelp,
-		PreRunE: func(_ *cobra.Command, _ []string) error { return setupConnection() },
+		Use:   "manifest [flags] RELEASE_NAME",
+		Short: "download the manifest for a named release",
+		Long:  getManifestHelp,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
 				return errReleaseRequired
 			}
 			get.release = args[0]
-			if get.client == nil {
-				get.client = helm.NewClient(helm.Host(settings.TillerHost))
-			}
 			return get.run()
 		},
 	}
@@ -68,10 +58,10 @@ func newGetManifestCmd(client helm.Interface, out io.Writer) *cobra.Command {
 
 // getManifest implements 'helm get manifest'
 func (g *getManifestCmd) run() error {
-	res, err := g.client.ReleaseContent(g.release, helm.ContentReleaseVersion(g.version))
+	rel, err := getRelease(g.release, g.version)
 	if err != nil {
-		return prettyError(err)
+		return err
 	}
-	fmt.Fprintln(g.out, res.Release.Manifest)
+	fmt.Fprintln(g.out, rel.Manifest)
 	return nil
 }

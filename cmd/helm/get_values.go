@@ -23,7 +23,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"k8s.io/helm/pkg/chartutil"
-	"k8s.io/helm/pkg/helm"
 )
 
 var getValuesHelp = `
@@ -34,26 +33,20 @@ type getValuesCmd struct {
 	release   string
 	allValues bool
 	out       io.Writer
-	client    helm.Interface
 	version   int32
 }
 
-func newGetValuesCmd(client helm.Interface, out io.Writer) *cobra.Command {
-	get := &getValuesCmd{
-		out:    out,
-		client: client,
-	}
+func newGetValuesCmd(out io.Writer) *cobra.Command {
+	get := &getValuesCmd{out: out}
 	cmd := &cobra.Command{
-		Use:     "values [flags] RELEASE_NAME",
-		Short:   "download the values file for a named release",
-		Long:    getValuesHelp,
-		PreRunE: func(_ *cobra.Command, _ []string) error { return setupConnection() },
+		Use:   "values [flags] RELEASE_NAME",
+		Short: "download the values file for a named release",
+		Long:  getValuesHelp,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
 				return errReleaseRequired
 			}
 			get.release = args[0]
-			get.client = ensureHelmClient(get.client)
 			return get.run()
 		},
 	}
@@ -65,14 +58,14 @@ func newGetValuesCmd(client helm.Interface, out io.Writer) *cobra.Command {
 
 // getValues implements 'helm get values'
 func (g *getValuesCmd) run() error {
-	res, err := g.client.ReleaseContent(g.release, helm.ContentReleaseVersion(g.version))
+	rel, err := getRelease(g.release, g.version)
 	if err != nil {
 		return prettyError(err)
 	}
 
 	// If the user wants all values, compute the values and return.
 	if g.allValues {
-		cfg, err := chartutil.CoalesceValues(res.Release.Chart, res.Release.Config)
+		cfg, err := chartutil.CoalesceValues(rel.Chart, rel.Config)
 		if err != nil {
 			return err
 		}
@@ -84,6 +77,6 @@ func (g *getValuesCmd) run() error {
 		return nil
 	}
 
-	fmt.Fprintln(g.out, res.Release.Config.Raw)
+	fmt.Fprintln(g.out, rel.Config.Raw)
 	return nil
 }

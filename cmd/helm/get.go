@@ -22,7 +22,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"k8s.io/helm/pkg/helm"
+	"k8s.io/helm/pkg/proto/hapi/release"
 )
 
 var getHelp = `
@@ -43,47 +43,50 @@ var errReleaseRequired = errors.New("release name is required")
 type getCmd struct {
 	release string
 	out     io.Writer
-	client  helm.Interface
 	version int32
 }
 
-func newGetCmd(client helm.Interface, out io.Writer) *cobra.Command {
-	get := &getCmd{
-		out:    out,
-		client: client,
-	}
+func newGetCmd(out io.Writer) *cobra.Command {
+	get := &getCmd{out: out}
 
 	cmd := &cobra.Command{
-		Use:     "get [flags] RELEASE_NAME",
-		Short:   "download a named release",
-		Long:    getHelp,
-		PreRunE: func(_ *cobra.Command, _ []string) error { return setupConnection() },
+		Use:   "get [flags] RELEASE_NAME",
+		Short: "download a named release",
+		Long:  getHelp,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
 				return errReleaseRequired
 			}
-			get.release = args[0]
-			if get.client == nil {
-				get.client = newClient()
-			}
+			rls := args[0]
+			// if err := tiller.ValidateReleaseName(rls); err != nil {
+			// 	return err
+			// }
+			get.release = rls
 			return get.run()
 		},
 	}
 
 	cmd.Flags().Int32Var(&get.version, "revision", 0, "get the named release with revision")
 
-	cmd.AddCommand(addFlagsTLS(newGetValuesCmd(nil, out)))
-	cmd.AddCommand(addFlagsTLS(newGetManifestCmd(nil, out)))
-	cmd.AddCommand(addFlagsTLS(newGetHooksCmd(nil, out)))
+	cmd.AddCommand(newGetValuesCmd(out))
+	cmd.AddCommand(newGetManifestCmd(out))
+	cmd.AddCommand(newGetHooksCmd(out))
 
 	return cmd
 }
 
 // getCmd is the command that implements 'helm get'
 func (g *getCmd) run() error {
-	res, err := g.client.ReleaseContent(g.release, helm.ContentReleaseVersion(g.version))
+	rel, err := getRelease(g.release, g.version)
 	if err != nil {
-		return prettyError(err)
+		return err
 	}
-	return printRelease(g.out, res.Release)
+	return printRelease(g.out, rel)
+}
+
+func getRelease(name string, version int32) (*release.Release, error) {
+	if version <= 0 {
+		return store.Last(name)
+	}
+	return store.Get(name, version)
 }

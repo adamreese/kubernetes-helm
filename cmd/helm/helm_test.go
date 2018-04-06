@@ -33,6 +33,8 @@ import (
 	"k8s.io/helm/pkg/helm/helmpath"
 	"k8s.io/helm/pkg/proto/hapi/release"
 	"k8s.io/helm/pkg/repo"
+	"k8s.io/helm/pkg/storage"
+	"k8s.io/helm/pkg/storage/driver"
 )
 
 // releaseCmd is a command that works with a FakeClient
@@ -40,9 +42,15 @@ type releaseCmd func(c *helm.FakeClient, out io.Writer) *cobra.Command
 
 // runReleaseCases runs a set of release cases through the given releaseCmd.
 func runReleaseCases(t *testing.T, tests []releaseCase, rcmd releaseCmd) {
+
+	store = storage.Init(driver.NewMemory())
+
 	var buf bytes.Buffer
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			for _, r := range tt.rels {
+				store.Create(r)
+			}
 			c := &helm.FakeClient{Rels: tt.rels}
 			cmd := rcmd(c, &buf)
 			cmd.ParseFlags(tt.flags)
@@ -131,7 +139,7 @@ func ensureTestHome(home helmpath.Home, t *testing.T) error {
 		}
 	}
 
-	localRepoIndexFile := home.LocalRepository(localRepositoryIndexFile)
+	localRepoIndexFile := home.LocalRepository("index.yaml")
 	if fi, err := os.Stat(localRepoIndexFile); err != nil {
 		i := repo.NewIndexFile()
 		if err := i.WriteFile(localRepoIndexFile, 0644); err != nil {
