@@ -154,7 +154,7 @@ func (t *templateCmd) run(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	config := &chart.Config{Raw: string(rawVals), Values: map[string]*chart.Value{}}
+	config := &chart.Config{Raw: string(rawVals)}
 
 	// If template is specified, try to run the template.
 	if t.nameTemplate != "" {

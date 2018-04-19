@@ -31,7 +31,7 @@ import (
 )
 
 type releaseInfo struct {
-	Revision    int32  `json:"revision"`
+	Revision    int    `json:"revision"`
 	Updated     string `json:"updated"`
 	Status      string `json:"status"`
 	Chart       string `json:"chart"`
@@ -57,7 +57,7 @@ The historical release set is printed as a formatted table, e.g:
 `
 
 type historyCmd struct {
-	max          int32
+	max          int
 	rls          string
 	out          io.Writer
 	helmc        helm.Interface

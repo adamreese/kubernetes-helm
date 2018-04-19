@@ -147,11 +147,7 @@ func CoalesceValues(chrt *chart.Chart, vals *chart.Config) (Values, error) {
 	// Parse values if not nil. We merge these at the top level because
 	// the passed-in values are in the same namespace as the parent chart.
 	if vals != nil {
-		evals, err := ReadValues([]byte(vals.Raw))
-		if err != nil {
-			return cvals, err
-		}
-		cvals, err = coalesce(chrt, evals)
+		cvals, err := coalesce(chrt, vals.Values)
 		if err != nil {
 			return cvals, err
 		}
@@ -267,18 +263,11 @@ func copyMap(src map[string]interface{}) map[string]interface{} {
 // Values in v will override the values in the chart.
 func coalesceValues(c *chart.Chart, v map[string]interface{}) (map[string]interface{}, error) {
 	// If there are no values in the chart, we just return the given values
-	if c.Values == nil || c.Values.Raw == "" {
+	if c.Values == nil {
 		return v, nil
 	}
 
-	nv, err := ReadValues([]byte(c.Values.Raw))
-	if err != nil {
-		// On error, we return just the overridden values.
-		// FIXME: We should log this error. It indicates that the YAML data
-		// did not parse.
-		return v, fmt.Errorf("error reading default values (%s): %s", c.Values.Raw, err)
-	}
-
+	nv := c.Values.Values
 	for key, val := range nv {
 		if value, ok := v[key]; ok {
 			if value == nil {

@@ -73,23 +73,26 @@ water:
 
 func TestToRenderValuesCaps(t *testing.T) {
 
-	chartValues := `
-name: al Rashid
-where:
-  city: Basrah
-  title: caliph
-`
-	overideValues := `
-name: Haroun
-where:
-  city: Baghdad
-  date: 809 CE
-`
+	chartValues := map[string]interface{}{
+		"name": "al Rashid",
+		"where": map[string]interface{}{
+			"city":  "Basrah",
+			"title": "caliph",
+		},
+	}
+
+	overideValues := map[string]interface{}{
+		"name": "Haroun",
+		"where": map[string]interface{}{
+			"city": "Baghdad",
+			"date": "809 CE",
+		},
+	}
 
 	c := &chart.Chart{
 		Metadata:  &chart.Metadata{Name: "test"},
 		Templates: []*chart.File{},
-		Values:    &chart.Config{Raw: chartValues},
+		Values:    &chart.Config{Values: chartValues},
 		Dependencies: []*chart.Chart{
 			{
 				Metadata: &chart.Metadata{Name: "where"},
@@ -100,7 +103,7 @@ where:
 			{Name: "scheherazade/shahryar.txt", Data: []byte("1,001 Nights")},
 		},
 	}
-	v := &chart.Config{Raw: overideValues}
+	v := &chart.Config{Values: overideValues}
 
 	o := ReleaseOptions{
 		Name:      "Seven Voyages",
@@ -305,7 +308,11 @@ func TestCoalesceValues(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	tvals := &chart.Config{Raw: testCoalesceValuesYaml}
+	m, err := ReadValues([]byte(testCoalesceValuesYaml))
+	if err != nil {
+		t.Fatal(err)
+	}
+	tvals := &chart.Config{Values: m}
 
 	v, err := CoalesceValues(c, tvals)
 	if err != nil {

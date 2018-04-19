@@ -296,12 +296,7 @@ func ProcessRequirementsEnabled(c *chart.Chart, v *chart.Config) error {
 	if err != nil {
 		return err
 	}
-	// convert our values back into config
-	yvals, err := cvals.YAML()
-	if err != nil {
-		return err
-	}
-	cc := chart.Config{Raw: yvals}
+	cc := chart.Config{Values: cvals}
 	// flag dependencies as enabled/disabled
 	ProcessRequirementsTags(reqs, cvals)
 	ProcessRequirementsConditions(reqs, cvals)
@@ -435,13 +430,8 @@ func processImportValues(c *chart.Chart) error {
 		}
 	}
 	b = coalesceTables(b, cvals)
-	y, err := yaml.Marshal(b)
-	if err != nil {
-		return err
-	}
-
 	// set the new values
-	c.Values = &chart.Config{Raw: string(y)}
+	c.Values = &chart.Config{Values: b}
 
 	return nil
 }

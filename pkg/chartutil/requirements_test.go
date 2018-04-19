@@ -45,7 +45,11 @@ func TestRequirementsTagsNonValue(t *testing.T) {
 		t.Fatalf("Failed to load testdata: %s", err)
 	}
 	// tags with no effect
-	v := &chart.Config{Raw: "tags:\n  nothinguseful: false\n\n"}
+	v := &chart.Config{Values: map[string]interface{}{
+		"tags": map[string]bool{
+			"nothinguseful": false,
+		},
+	}}
 	// expected charts including duplicates in alphanumeric order
 	e := []string{"parentchart", "subchart1", "subcharta", "subchartb"}
 
@@ -57,7 +61,11 @@ func TestRequirementsTagsDisabledL1(t *testing.T) {
 		t.Fatalf("Failed to load testdata: %s", err)
 	}
 	// tags disabling a group
-	v := &chart.Config{Raw: "tags:\n  front-end: false\n\n"}
+	v := &chart.Config{Values: map[string]interface{}{
+		"tags": map[string]bool{
+			"front-end": false,
+		},
+	}}
 	// expected charts including duplicates in alphanumeric order
 	e := []string{"parentchart"}
 
@@ -69,7 +77,7 @@ func TestRequirementsTagsEnabledL1(t *testing.T) {
 		t.Fatalf("Failed to load testdata: %s", err)
 	}
 	// tags disabling a group and enabling a different group
-	v := &chart.Config{Raw: "tags:\n  front-end: false\n\n  back-end: true\n"}
+	v := newConfig("tags:\n  front-end: false\n\n  back-end: true\n")
 	// expected charts including duplicates in alphanumeric order
 	e := []string{"parentchart", "subchart2", "subchartb", "subchartc"}
 
@@ -82,7 +90,7 @@ func TestRequirementsTagsDisabledL2(t *testing.T) {
 		t.Fatalf("Failed to load testdata: %s", err)
 	}
 	// tags disabling only children, children still enabled since tag front-end=true in values.yaml
-	v := &chart.Config{Raw: "tags:\n  subcharta: false\n\n  subchartb: false\n"}
+	v := newConfig("tags:\n  subcharta: false\n\n  subchartb: false\n")
 	// expected charts including duplicates in alphanumeric order
 	e := []string{"parentchart", "subchart1", "subcharta", "subchartb"}
 
@@ -94,7 +102,7 @@ func TestRequirementsTagsDisabledL1Mixed(t *testing.T) {
 		t.Fatalf("Failed to load testdata: %s", err)
 	}
 	// tags disabling all parents/children with additional tag re-enabling a parent
-	v := &chart.Config{Raw: "tags:\n  front-end: false\n\n  subchart1: true\n\n  back-end: false\n"}
+	v := newConfig("tags:\n  front-end: false\n\n  subchart1: true\n\n  back-end: false\n")
 	// expected charts including duplicates in alphanumeric order
 	e := []string{"parentchart", "subchart1"}
 
@@ -106,7 +114,7 @@ func TestRequirementsConditionsNonValue(t *testing.T) {
 		t.Fatalf("Failed to load testdata: %s", err)
 	}
 	// tags with no effect
-	v := &chart.Config{Raw: "subchart1:\n  nothinguseful: false\n\n"}
+	v := newConfig("subchart1:\n  nothinguseful: false\n\n")
 	// expected charts including duplicates in alphanumeric order
 	e := []string{"parentchart", "subchart1", "subcharta", "subchartb"}
 
@@ -496,4 +504,12 @@ func TestDependentChartsWithSomeSubchartsSpecifiedInRequirements(t *testing.T) {
 		t.Fatalf("Expected more dependencies than specified in requirements.yaml(%d), but got %d", len(reqmts.Dependencies), len(c.Dependencies))
 	}
 
+}
+
+func newConfig(in string) *chart.Config {
+	v, err := ReadValues([]byte(in))
+	if err != nil {
+		panic(err)
+	}
+	return &chart.Config{Values: v}
 }

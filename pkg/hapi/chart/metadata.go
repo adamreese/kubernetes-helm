@@ -27,7 +27,7 @@ type Maintainer struct {
 	// Email is an optional email address to contact the named maintainer
 	Email string `json:"email,omitempty"`
 	// Url is an optional URL to an address for the named maintainer
-	Url string `json:"url,omitempty"`
+	URL string `json:"url,omitempty"`
 }
 
 // 	Metadata for a Chart file. This models the structure of a Chart.yaml file.
@@ -53,7 +53,7 @@ type Metadata struct {
 	// The URL to an icon file.
 	Icon string `json:"icon,omitempty"`
 	// The API Version of this chart.
-	ApiVersion string `json:"apiVersion,omitempty"`
+	APIVersion string `json:"apiVersion,omitempty"`
 	// The condition to check to enable chart
 	Condition string `json:"condition,omitempty"`
 	// The tags to check to enable chart

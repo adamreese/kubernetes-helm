@@ -132,7 +132,14 @@ func LoadFiles(files []*BufferedFile) (*chart.Chart, error) {
 		} else if f.Name == "values.toml" {
 			return c, errors.New("values.toml is illegal as of 2.0.0-alpha.2")
 		} else if f.Name == "values.yaml" {
-			c.Values = &chart.Config{Raw: string(f.Data)}
+			vals, err := ReadValues(f.Data)
+			if err != nil {
+				return c, err
+			}
+			c.Values = &chart.Config{
+				Values: vals,
+				Raw:    string(f.Data),
+			}
 		} else if strings.HasPrefix(f.Name, "templates/") {
 			c.Templates = append(c.Templates, &chart.File{Name: f.Name, Data: f.Data})
 		} else if strings.HasPrefix(f.Name, "charts/") {
