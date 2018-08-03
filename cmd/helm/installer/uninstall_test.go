@@ -19,17 +19,18 @@ package installer // import "k8s.io/helm/cmd/helm/installer"
 import (
 	"testing"
 
+	"k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/kubernetes/fake"
 	testcore "k8s.io/client-go/testing"
-	"k8s.io/kubernetes/pkg/apis/core"
-	"k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset/fake"
 )
 
 func TestUninstall(t *testing.T) {
 	fc := &fake.Clientset{}
-	opts := &Options{Namespace: core.NamespaceDefault}
+	opts := &Options{Namespace: metav1.NamespaceDefault}
 	if err := Uninstall(fc, opts); err != nil {
 		t.Errorf("unexpected error: %#+v", err)
 	}
@@ -45,7 +46,7 @@ func TestUninstall_serviceNotFound(t *testing.T) {
 		return true, nil, apierrors.NewNotFound(schema.GroupResource{Resource: "services"}, "1")
 	})
 
-	opts := &Options{Namespace: core.NamespaceDefault}
+	opts := &Options{Namespace: metav1.NamespaceDefault}
 	if err := Uninstall(fc, opts); err != nil {
 		t.Errorf("unexpected error: %#+v", err)
 	}
@@ -58,10 +59,10 @@ func TestUninstall_serviceNotFound(t *testing.T) {
 func TestUninstall_deploymentNotFound(t *testing.T) {
 	fc := &fake.Clientset{}
 	fc.AddReactor("delete", "deployments", func(action testcore.Action) (bool, runtime.Object, error) {
-		return true, nil, apierrors.NewNotFound(core.Resource("deployments"), "1")
+		return true, nil, apierrors.NewNotFound(v1.Resource("deployments"), "1")
 	})
 
-	opts := &Options{Namespace: core.NamespaceDefault}
+	opts := &Options{Namespace: metav1.NamespaceDefault}
 	if err := Uninstall(fc, opts); err != nil {
 		t.Errorf("unexpected error: %#+v", err)
 	}
@@ -74,10 +75,10 @@ func TestUninstall_deploymentNotFound(t *testing.T) {
 func TestUninstall_secretNotFound(t *testing.T) {
 	fc := &fake.Clientset{}
 	fc.AddReactor("delete", "secrets", func(action testcore.Action) (bool, runtime.Object, error) {
-		return true, nil, apierrors.NewNotFound(core.Resource("secrets"), "1")
+		return true, nil, apierrors.NewNotFound(v1.Resource("secrets"), "1")
 	})
 
-	opts := &Options{Namespace: core.NamespaceDefault}
+	opts := &Options{Namespace: metav1.NamespaceDefault}
 	if err := Uninstall(fc, opts); err != nil {
 		t.Errorf("unexpected error: %#+v", err)
 	}

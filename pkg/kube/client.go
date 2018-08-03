@@ -86,7 +86,7 @@ type ResourceActorFunc func(*resource.Info) error
 //
 // Namespace will set the namespace.
 func (c *Client) Create(namespace string, reader io.Reader, timeout int64, shouldWait bool) error {
-	client, err := c.ClientSet()
+	client, err := c.KubernetesClientSet()
 	if err != nil {
 		return err
 	}
