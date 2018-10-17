@@ -30,32 +30,35 @@ import (
 
 type mockKubeClient struct{}
 
-func (k *mockKubeClient) Create(ns string, r io.Reader, timeout int64, shouldWait bool) error {
+func (k *mockKubeClient) Wait(r io.Reader, timeout int64) error {
 	return nil
 }
-func (k *mockKubeClient) Get(ns string, r io.Reader) (string, error) {
+func (k *mockKubeClient) Create(r io.Reader) error {
+	return nil
+}
+func (k *mockKubeClient) Get(r io.Reader) (string, error) {
 	return "", nil
 }
-func (k *mockKubeClient) Delete(ns string, r io.Reader) error {
+func (k *mockKubeClient) Delete(r io.Reader) error {
 	return nil
 }
-func (k *mockKubeClient) Update(ns string, currentReader, modifiedReader io.Reader, force, recreate bool, timeout int64, shouldWait bool) error {
+func (k *mockKubeClient) Update(currentReader, modifiedReader io.Reader, force, recreate bool) error {
 	return nil
 }
-func (k *mockKubeClient) WatchUntilReady(ns string, r io.Reader, timeout int64, shouldWait bool) error {
+func (k *mockKubeClient) WatchUntilReady(r io.Reader, timeout int64) error {
 	return nil
 }
-func (k *mockKubeClient) Build(ns string, reader io.Reader) (kube.Result, error) {
+func (k *mockKubeClient) Build(reader io.Reader) (kube.Result, error) {
 	return []*resource.Info{}, nil
 }
-func (k *mockKubeClient) BuildUnstructured(ns string, reader io.Reader) (kube.Result, error) {
+func (k *mockKubeClient) BuildUnstructured(reader io.Reader) (kube.Result, error) {
 	return []*resource.Info{}, nil
 }
-func (k *mockKubeClient) WaitAndGetCompletedPodPhase(namespace string, reader io.Reader, timeout time.Duration) (v1.PodPhase, error) {
+func (k *mockKubeClient) WaitAndGetCompletedPodPhase(reader io.Reader, timeout time.Duration) (v1.PodPhase, error) {
 	return v1.PodUnknown, nil
 }
 
-func (k *mockKubeClient) WaitAndGetCompletedPodStatus(namespace string, reader io.Reader, timeout time.Duration) (v1.PodPhase, error) {
+func (k *mockKubeClient) WaitAndGetCompletedPodStatus(reader io.Reader, timeout time.Duration) (v1.PodPhase, error) {
 	return "", nil
 }
 
@@ -76,7 +79,7 @@ func TestKubeClient(t *testing.T) {
 		b.WriteString(content)
 	}
 
-	if err := kc.Create("sharry-bobbins", b, 300, false); err != nil {
+	if err := kc.Create(b); err != nil {
 		t.Errorf("Kubeclient failed: %s", err)
 	}
 }

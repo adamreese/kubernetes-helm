@@ -180,13 +180,24 @@ func (s *ReleaseServer) performRelease(r *release.Release, req *hapi.InstallRele
 		// regular manifests
 		s.recordRelease(r, false)
 		b := bytes.NewBufferString(r.Manifest)
-		if err := s.KubeClient.Create(r.Namespace, b, req.Timeout, req.Wait); err != nil {
+		if err := s.KubeClient.Create(b); err != nil {
 			msg := fmt.Sprintf("Release %q failed: %s", r.Name, err)
 			s.Log("warning: %s", msg)
 			r.Info.Status = release.StatusFailed
 			r.Info.Description = msg
 			s.recordRelease(r, true)
 			return r, errors.Wrapf(err, "release %s failed", r.Name)
+		}
+
+		if req.Wait {
+			if err := s.KubeClient.Wait(b, req.Timeout); err != nil {
+				msg := fmt.Sprintf("Release %q failed: %s", r.Name, err)
+				s.Log("warning: %s", msg)
+				r.Info.Status = release.StatusFailed
+				r.Info.Description = msg
+				s.recordRelease(r, true)
+				return r, errors.Wrapf(err, "release %s failed", r.Name)
+			}
 		}
 	}
 

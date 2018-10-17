@@ -89,9 +89,9 @@ type ResourceActorFunc func(*resource.Info) error
 // Create creates Kubernetes resources from an io.reader.
 //
 // Namespace will set the namespace.
-func (c *Client) Create(namespace string, reader io.Reader, timeout int64, shouldWait bool) error {
+func (c *Client) Create(reader io.Reader) error {
 	c.Log("building resources from manifest")
-	infos, err := c.BuildUnstructured(namespace, reader)
+	infos, err := c.BuildUnstructured(reader)
 	if err != nil {
 		return err
 	}
@@ -99,13 +99,20 @@ func (c *Client) Create(namespace string, reader io.Reader, timeout int64, shoul
 	if err := perform(infos, createResource); err != nil {
 		return err
 	}
-	if shouldWait {
-		return c.waitForResources(time.Duration(timeout)*time.Second, infos)
-	}
 	return nil
 }
 
-func (c *Client) namespace() string {
+// Wait waits for resources to be ready.
+func (c *Client) Wait(reader io.Reader, timeout int64) error {
+	c.Log("building resources from manifest")
+	infos, err := c.BuildUnstructured(reader)
+	if err != nil {
+		return err
+	}
+	return c.waitForResources(time.Duration(timeout)*time.Second, infos)
+}
+
+func (c *Client) Namespace() string {
 	if ns, _, err := c.Factory.ToRawKubeConfigLoader().Namespace(); err == nil {
 		return ns
 	}
@@ -116,7 +123,7 @@ func (c *Client) namespace() string {
 func (c *Client) newBuilder() *resource.Builder {
 	return c.Factory.NewBuilder().
 		ContinueOnError().
-		NamespaceParam(c.namespace()).
+		NamespaceParam(c.Namespace()).
 		DefaultNamespace().
 		RequireNamespace().
 		Flatten()
@@ -131,7 +138,7 @@ func (c *Client) validator() resource.ContentValidator {
 }
 
 // BuildUnstructured validates for Kubernetes objects and returns unstructured infos.
-func (c *Client) BuildUnstructured(namespace string, reader io.Reader) (Result, error) {
+func (c *Client) BuildUnstructured(reader io.Reader) (Result, error) {
 	var result Result
 
 	result, err := c.newBuilder().
@@ -142,7 +149,7 @@ func (c *Client) BuildUnstructured(namespace string, reader io.Reader) (Result, 
 }
 
 // Build validates for Kubernetes objects and returns resource Infos from a io.Reader.
-func (c *Client) Build(namespace string, reader io.Reader) (Result, error) {
+func (c *Client) Build(reader io.Reader) (Result, error) {
 	var result Result
 	result, err := c.newBuilder().
 		WithScheme(legacyscheme.Scheme).
@@ -154,18 +161,16 @@ func (c *Client) Build(namespace string, reader io.Reader) (Result, error) {
 }
 
 // Get gets Kubernetes resources as pretty-printed string.
-//
-// Namespace will set the namespace.
-func (c *Client) Get(namespace string, reader io.Reader) (string, error) {
+func (c *Client) Get(reader io.Reader) (string, error) {
 	// Since we don't know what order the objects come in, let's group them by the types, so
 	// that when we print them, they come out looking good (headers apply to subgroups, etc.).
 	objs := make(map[string][]runtime.Object)
-	infos, err := c.BuildUnstructured(namespace, reader)
+	infos, err := c.BuildUnstructured(reader)
 	if err != nil {
 		return "", err
 	}
 
-	var objPods = make(map[string][]v1.Pod)
+	objPods := make(map[string][]v1.Pod)
 
 	missing := []string{}
 	err = perform(infos, func(info *resource.Info) error {
@@ -233,16 +238,14 @@ func (c *Client) Get(namespace string, reader io.Reader) (string, error) {
 // and creates resources that don't already exists, updates resources that have been modified
 // in the target configuration and deletes resources from the current configuration that are
 // not present in the target configuration.
-//
-// Namespace will set the namespaces.
-func (c *Client) Update(namespace string, originalReader, targetReader io.Reader, force, recreate bool, timeout int64, shouldWait bool) error {
-	original, err := c.BuildUnstructured(namespace, originalReader)
+func (c *Client) Update(originalReader, targetReader io.Reader, force, recreate bool) error {
+	original, err := c.BuildUnstructured(originalReader)
 	if err != nil {
 		return goerrors.Wrap(err, "failed decoding reader into objects")
 	}
 
 	c.Log("building resources from updated manifest")
-	target, err := c.BuildUnstructured(namespace, targetReader)
+	target, err := c.BuildUnstructured(targetReader)
 	if err != nil {
 		return goerrors.Wrap(err, "failed decoding reader into objects")
 	}
@@ -298,17 +301,12 @@ func (c *Client) Update(namespace string, originalReader, targetReader io.Reader
 			c.Log("Failed to delete %q, err: %s", info.Name, err)
 		}
 	}
-	if shouldWait {
-		return c.waitForResources(time.Duration(timeout)*time.Second, target)
-	}
 	return nil
 }
 
 // Delete deletes Kubernetes resources from an io.reader.
-//
-// Namespace will set the namespace.
-func (c *Client) Delete(namespace string, reader io.Reader) error {
-	infos, err := c.BuildUnstructured(namespace, reader)
+func (c *Client) Delete(reader io.Reader) error {
+	infos, err := c.BuildUnstructured(reader)
 	if err != nil {
 		return err
 	}
@@ -345,8 +343,8 @@ func (c *Client) watchTimeout(t time.Duration) ResourceActorFunc {
 //   ascertained by watching the Status fields in a job's output.
 //
 // Handling for other kinds will be added as necessary.
-func (c *Client) WatchUntilReady(namespace string, reader io.Reader, timeout int64, shouldWait bool) error {
-	infos, err := c.Build(namespace, reader)
+func (c *Client) WatchUntilReady(reader io.Reader, timeout int64) error {
+	infos, err := c.Build(reader)
 	if err != nil {
 		return err
 	}
@@ -626,8 +624,8 @@ func scrubValidationError(err error) error {
 
 // WaitAndGetCompletedPodPhase waits up to a timeout until a pod enters a completed phase
 // and returns said phase (PodSucceeded or PodFailed qualify).
-func (c *Client) WaitAndGetCompletedPodPhase(namespace string, reader io.Reader, timeout time.Duration) (v1.PodPhase, error) {
-	infos, err := c.Build(namespace, reader)
+func (c *Client) WaitAndGetCompletedPodPhase(reader io.Reader, timeout time.Duration) (v1.PodPhase, error) {
+	infos, err := c.Build(reader)
 	if err != nil {
 		return v1.PodUnknown, err
 	}

@@ -285,5 +285,11 @@ func (s *ReleaseServer) performUpdate(originalRelease, updatedRelease *release.R
 func (s *ReleaseServer) updateRelease(current, target *release.Release, req *hapi.UpdateReleaseRequest) error {
 	c := bytes.NewBufferString(current.Manifest)
 	t := bytes.NewBufferString(target.Manifest)
-	return s.KubeClient.Update(target.Namespace, c, t, req.Force, req.Recreate, req.Timeout, req.Wait)
+	if err := s.KubeClient.Update(c, t, req.Force, req.Recreate); err != nil {
+		return err
+	}
+	if req.Wait {
+		return s.KubeClient.Wait(t, req.Timeout)
+	}
+	return nil
 }

@@ -396,7 +396,7 @@ type updateFailingKubeClient struct {
 	environment.PrintingKubeClient
 }
 
-func (u *updateFailingKubeClient) Update(namespace string, originalReader, modifiedReader io.Reader, force, recreate bool, timeout int64, shouldWait bool) error {
+func (u *updateFailingKubeClient) Update(originalReader, modifiedReader io.Reader, force, recreate bool) error {
 	return errors.New("Failed update in kube client")
 }
 
@@ -410,7 +410,7 @@ type hookFailingKubeClient struct {
 	environment.PrintingKubeClient
 }
 
-func (h *hookFailingKubeClient) WatchUntilReady(ns string, r io.Reader, timeout int64, shouldWait bool) error {
+func (h *hookFailingKubeClient) WatchUntilReady(r io.Reader, timeout int64) error {
 	return errors.New("Failed watch")
 }
 
@@ -439,7 +439,10 @@ func (kc *mockHooksKubeClient) makeManifest(r io.Reader) (*mockHooksManifest, er
 
 	return manifest, nil
 }
-func (kc *mockHooksKubeClient) Create(ns string, r io.Reader, timeout int64, shouldWait bool) error {
+func (kc *mockHooksKubeClient) Wait(r io.Reader, timeout int64) error {
+	return nil
+}
+func (kc *mockHooksKubeClient) Create(r io.Reader) error {
 	manifest, err := kc.makeManifest(r)
 	if err != nil {
 		return err
@@ -453,10 +456,10 @@ func (kc *mockHooksKubeClient) Create(ns string, r io.Reader, timeout int64, sho
 
 	return nil
 }
-func (kc *mockHooksKubeClient) Get(ns string, r io.Reader) (string, error) {
+func (kc *mockHooksKubeClient) Get(r io.Reader) (string, error) {
 	return "", nil
 }
-func (kc *mockHooksKubeClient) Delete(ns string, r io.Reader) error {
+func (kc *mockHooksKubeClient) Delete(r io.Reader) error {
 	manifest, err := kc.makeManifest(r)
 	if err != nil {
 		return err
@@ -466,7 +469,7 @@ func (kc *mockHooksKubeClient) Delete(ns string, r io.Reader) error {
 
 	return nil
 }
-func (kc *mockHooksKubeClient) WatchUntilReady(ns string, r io.Reader, timeout int64, shouldWait bool) error {
+func (kc *mockHooksKubeClient) WatchUntilReady(r io.Reader, timeout int64) error {
 	paramManifest, err := kc.makeManifest(r)
 	if err != nil {
 		return err
@@ -483,16 +486,16 @@ func (kc *mockHooksKubeClient) WatchUntilReady(ns string, r io.Reader, timeout i
 
 	return nil
 }
-func (kc *mockHooksKubeClient) Update(_ string, _, _ io.Reader, _, _ bool, _ int64, _ bool) error {
+func (kc *mockHooksKubeClient) Update(_, _ io.Reader, _, _ bool) error {
 	return nil
 }
-func (kc *mockHooksKubeClient) Build(_ string, _ io.Reader) (kube.Result, error) {
+func (kc *mockHooksKubeClient) Build(_ io.Reader) (kube.Result, error) {
 	return []*resource.Info{}, nil
 }
-func (kc *mockHooksKubeClient) BuildUnstructured(_ string, _ io.Reader) (kube.Result, error) {
+func (kc *mockHooksKubeClient) BuildUnstructured(_ io.Reader) (kube.Result, error) {
 	return []*resource.Info{}, nil
 }
-func (kc *mockHooksKubeClient) WaitAndGetCompletedPodPhase(_ string, _ io.Reader, _ time.Duration) (v1.PodPhase, error) {
+func (kc *mockHooksKubeClient) WaitAndGetCompletedPodPhase(_ io.Reader, _ time.Duration) (v1.PodPhase, error) {
 	return v1.PodUnknown, nil
 }
 

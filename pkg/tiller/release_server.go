@@ -345,14 +345,14 @@ func (s *ReleaseServer) execHook(hs []*release.Hook, name, namespace, hook strin
 		}
 
 		b := bytes.NewBufferString(h.Manifest)
-		if err := s.KubeClient.Create(namespace, b, timeout, false); err != nil {
+		if err := s.KubeClient.Create(b); err != nil {
 			return errors.Wrapf(err, "warning: Release %s %s %s failed", name, hook, h.Path)
 		}
 		// No way to rewind a bytes.Buffer()?
 		b.Reset()
 		b.WriteString(h.Manifest)
 
-		if err := s.KubeClient.WatchUntilReady(namespace, b, timeout, false); err != nil {
+		if err := s.KubeClient.WatchUntilReady(b, timeout); err != nil {
 			s.Log("warning: Release %s %s %s could not complete: %s", name, hook, h.Path, err)
 			// If a hook is failed, checkout the annotation of the hook to determine whether the hook should be deleted
 			// under failed condition. If so, then clear the corresponding resource object in the hook
@@ -378,7 +378,7 @@ func (s *ReleaseServer) execHook(hs []*release.Hook, name, namespace, hook strin
 
 func validateManifest(c environment.KubeClient, ns string, manifest []byte) error {
 	r := bytes.NewReader(manifest)
-	_, err := c.BuildUnstructured(ns, r)
+	_, err := c.BuildUnstructured(r)
 	return err
 }
 
@@ -398,7 +398,7 @@ func (s *ReleaseServer) deleteHookIfShouldBeDeletedByDeletePolicy(h *release.Hoo
 	b := bytes.NewBufferString(h.Manifest)
 	if hookHasDeletePolicy(h, policy) {
 		s.Log("deleting %s hook %s for release %s due to %q policy", hook, h.Name, name, policy)
-		if errHookDelete := kubeCli.Delete(namespace, b); errHookDelete != nil {
+		if errHookDelete := kubeCli.Delete(b); errHookDelete != nil {
 			s.Log("warning: Release %s %s %S could not be deleted: %s", name, hook, h.Path, errHookDelete)
 			return errHookDelete
 		}

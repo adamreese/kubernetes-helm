@@ -62,7 +62,7 @@ func summarizeKeptManifests(manifests []Manifest, kubeClient environment.KubeCli
 	var message string
 	for _, m := range manifests {
 		// check if m is in fact present from k8s client's POV.
-		output, err := kubeClient.Get(namespace, bytes.NewBufferString(m.Content))
+		output, err := kubeClient.Get(bytes.NewBufferString(m.Content))
 		if err != nil || strings.Contains(output, kube.MissingGetHeader) {
 			continue
 		}

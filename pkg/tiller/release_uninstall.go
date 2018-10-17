@@ -151,7 +151,7 @@ func (s *ReleaseServer) deleteRelease(rel *release.Release) (kept string, errs [
 		if b.Len() == 0 {
 			continue
 		}
-		if err := s.KubeClient.Delete(rel.Namespace, b); err != nil {
+		if err := s.KubeClient.Delete(b); err != nil {
 			s.Log("uninstall: Failed deletion of %q: %s", rel.Name, err)
 			if err == kube.ErrNoObjectsVisited {
 				// Rewrite the message from "no objects visited"
