@@ -20,7 +20,6 @@ import (
 	"bytes"
 	"strings"
 
-	"k8s.io/helm/pkg/kube"
 	"k8s.io/helm/pkg/tiller/environment"
 )
 
@@ -62,8 +61,7 @@ func summarizeKeptManifests(manifests []Manifest, kubeClient environment.KubeCli
 	var message string
 	for _, m := range manifests {
 		// check if m is in fact present from k8s client's POV.
-		output, err := kubeClient.Get(namespace, bytes.NewBufferString(m.Content))
-		if err != nil || strings.Contains(output, kube.MissingGetHeader) {
+		if _, err := kubeClient.Get(namespace, bytes.NewBufferString(m.Content)); err != nil {
 			continue
 		}
 

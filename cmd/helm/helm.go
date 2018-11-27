@@ -69,7 +69,7 @@ func newClient(allNamespaces bool) helm.Interface {
 	kc := kube.New(kubeConfig())
 	kc.Log = logf
 
-	clientset, err := kc.KubernetesClientSet()
+	clientset, err := kc.ClientSet()
 	if err != nil {
 		// TODO return error
 		log.Fatal(err)

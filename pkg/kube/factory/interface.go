@@ -14,25 +14,32 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package kube // import "k8s.io/helm/pkg/kube"
+package factory // import "k8s.io/helm/pkg/kube/factory"
 
 import (
+	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/cli-runtime/pkg/genericclioptions/resource"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/clientcmd"
-	"k8s.io/kubernetes/pkg/kubectl/validation"
+
+	"k8s.io/helm/pkg/kube/validation"
 )
 
 // Factory provides abstractions that allow the Kubectl command to be extended across multiple types
 // of resources and different API sets.
 type Factory interface {
-	// ToRawKubeConfigLoader return kubeconfig loader as-is
-	ToRawKubeConfigLoader() clientcmd.ClientConfig
-	// KubernetesClientSet gives you back an external clientset
-	KubernetesClientSet() (*kubernetes.Clientset, error)
+	ClientGetter
 	// NewBuilder returns an object that assists in loading objects from both disk and the server
 	// and which implements the common patterns for CLI interactions with generic resources.
 	NewBuilder() *resource.Builder
 	// Returns a schema that can validate objects stored on disk.
 	Validator(validate bool) (validation.Schema, error)
+}
+
+type ClientGetter interface {
+	genericclioptions.RESTClientGetter
+	// ClientSet gives you back an external clientset
+	ClientSet() (*kubernetes.Clientset, error)
+	// DynamicClient returns a dynamic client ready for use
+	DynamicClient() (dynamic.Interface, error)
 }

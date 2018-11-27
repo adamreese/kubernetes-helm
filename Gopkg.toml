@@ -36,12 +36,8 @@
   branch = "release-1.12"
 
 [[constraint]]
-  version = "kubernetes-1.12.1"
   name = "k8s.io/client-go"
-
-[[constraint]]
-  name = "k8s.io/kubernetes"
-  branch = "release-1.12"
+  version = "v9.0.0"
 
 [[override]]
   name = "k8s.io/apiserver"

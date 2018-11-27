@@ -1,0 +1,21 @@
+kind: Service
+apiVersion: v1
+metadata:
+  name: my-service
+spec:
+  selector:
+    app: myapp
+  ports:
+    - port: 80
+      protocol: TCP
+      targetPort: 9376
+---
+kind: Endpoints
+apiVersion: v1
+metadata:
+  name: my-service
+subsets:
+  - addresses:
+      - ip: "1.2.3.4"
+    ports:
+      - port: 9376

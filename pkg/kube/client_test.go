@@ -27,33 +27,25 @@ import (
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/cli-runtime/pkg/genericclioptions/resource"
+	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest/fake"
-	cmdtesting "k8s.io/kubernetes/pkg/kubectl/cmd/testing"
-	"k8s.io/kubernetes/pkg/kubectl/scheme"
 )
 
-var unstructuredSerializer = resource.UnstructuredPlusDefaultContentConfig().NegotiatedSerializer
-var codec = scheme.Codecs.LegacyCodec(scheme.Scheme.PrioritizedVersionsAllGroups()...)
+var (
+	unstructuredSerializer = resource.UnstructuredPlusDefaultContentConfig().NegotiatedSerializer
+	codec                  = scheme.Codecs.LegacyCodec(scheme.Scheme.PrioritizedVersionsAllGroups()...)
+)
 
 func objBody(obj runtime.Object) io.ReadCloser {
 	return ioutil.NopCloser(bytes.NewReader([]byte(runtime.EncodeOrDie(codec, obj))))
 }
 
 func newPod(name string) v1.Pod {
-	return newPodWithStatus(name, v1.PodStatus{}, "")
-}
-
-func newPodWithStatus(name string, status v1.PodStatus, namespace string) v1.Pod {
-	ns := v1.NamespaceDefault
-	if namespace != "" {
-		ns = namespace
-	}
 	return v1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
-			Namespace: ns,
+			Namespace: v1.NamespaceDefault,
 			SelfLink:  "/api/v1/namespaces/default/pods/" + name,
 		},
 		Spec: v1.PodSpec{
@@ -63,7 +55,6 @@ func newPodWithStatus(name string, status v1.PodStatus, namespace string) v1.Pod
 				Ports: []v1.ContainerPort{{Name: "http", ContainerPort: 80}},
 			}},
 		},
-		Status: status,
 	}
 }
 
@@ -94,11 +85,11 @@ func newResponse(code int, obj runtime.Object) (*http.Response, error) {
 
 type testClient struct {
 	*Client
-	*cmdtesting.TestFactory
+	*TestFactory
 }
 
 func newTestClient() *testClient {
-	tf := cmdtesting.NewTestFactory()
+	tf := NewTestFactory()
 	c := &Client{Factory: tf, Log: nopLogger}
 	return &testClient{Client: c, TestFactory: tf}
 }
@@ -112,7 +103,7 @@ func TestUpdate(t *testing.T) {
 
 	var actions []string
 
-	tf := cmdtesting.NewTestFactory().WithNamespace("default")
+	tf := NewTestFactory().WithNamespace("default")
 	defer tf.Cleanup()
 	tf.UnstructuredClient = &fake.RESTClient{
 		NegotiatedSerializer: unstructuredSerializer,
@@ -186,6 +177,14 @@ func TestUpdate(t *testing.T) {
 	}
 }
 
+func open(t *testing.T, file string) io.Reader {
+	f, err := ioutil.ReadFile(file)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return bytes.NewReader(f)
+}
+
 func TestBuild(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -197,12 +196,12 @@ func TestBuild(t *testing.T) {
 		{
 			name:      "Valid input",
 			namespace: "test",
-			reader:    strings.NewReader(guestbookManifest),
+			reader:    open(t, "testdata/guestbook.yaml"),
 			count:     6,
 		}, {
 			name:      "Invalid schema",
 			namespace: "test",
-			reader:    strings.NewReader(testInvalidServiceManifest),
+			reader:    open(t, "testdata/invalid-service.yaml"),
 			err:       true,
 		},
 	}
@@ -227,49 +226,6 @@ func TestBuild(t *testing.T) {
 	}
 }
 
-func TestGet(t *testing.T) {
-	list := newPodList("starfish", "otter")
-	c := newTestClient()
-	defer c.Cleanup()
-	c.TestFactory.UnstructuredClient = &fake.RESTClient{
-		GroupVersion:         schema.GroupVersion{Version: "v1"},
-		NegotiatedSerializer: unstructuredSerializer,
-		Client: fake.CreateHTTPClient(func(req *http.Request) (*http.Response, error) {
-			p, m := req.URL.Path, req.Method
-			t.Logf("got request %s %s", p, m)
-			switch {
-			case p == "/namespaces/default/pods/starfish" && m == "GET":
-				return newResponse(404, notFoundBody())
-			case p == "/namespaces/default/pods/otter" && m == "GET":
-				return newResponse(200, &list.Items[1])
-			default:
-				t.Fatalf("unexpected request: %s %s", req.Method, req.URL.Path)
-				return nil, nil
-			}
-		}),
-	}
-
-	// Test Success
-	data := strings.NewReader("kind: Pod\napiVersion: v1\nmetadata:\n  name: otter")
-	o, err := c.Get("default", data)
-	if err != nil {
-		t.Errorf("Expected missing results, got %q", err)
-	}
-	if !strings.Contains(o, "==> v1/Pod") && !strings.Contains(o, "otter") {
-		t.Errorf("Expected v1/Pod otter, got %s", o)
-	}
-
-	// Test failure
-	data = strings.NewReader("kind: Pod\napiVersion: v1\nmetadata:\n  name: starfish")
-	o, err = c.Get("default", data)
-	if err != nil {
-		t.Errorf("Expected missing results, got %q", err)
-	}
-	if !strings.Contains(o, "MISSING") && !strings.Contains(o, "pods\t\tstarfish") {
-		t.Errorf("Expected missing starfish, got %s", o)
-	}
-}
-
 func TestPerform(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -280,7 +236,7 @@ func TestPerform(t *testing.T) {
 	}{
 		{
 			name:   "Valid input",
-			reader: strings.NewReader(guestbookManifest),
+			reader: open(t, "testdata/guestbook.yaml"),
 			count:  6,
 		}, {
 			name:       "Empty manifests",
@@ -324,180 +280,21 @@ func TestPerform(t *testing.T) {
 func TestReal(t *testing.T) {
 	t.Skip("This is a live test, comment this line to run")
 	c := New(nil)
-	if err := c.Create("test", strings.NewReader(guestbookManifest), 300, false); err != nil {
+	if err := c.Create("test", open(t, "testdata/guestbook.yaml"), 300, false); err != nil {
 		t.Fatal(err)
 	}
 
-	testSvcEndpointManifest := testServiceManifest + "\n---\n" + testEndpointManifest
 	c = New(nil)
-	if err := c.Create("test-delete", strings.NewReader(testSvcEndpointManifest), 300, false); err != nil {
+	if err := c.Create("test-delete", open(t, "testdata/service.yaml"), 300, false); err != nil {
 		t.Fatal(err)
 	}
 
-	if err := c.Delete("test-delete", strings.NewReader(testEndpointManifest)); err != nil {
+	if err := c.Delete("test-delete", open(t, "testdata/endpoint.yaml")); err != nil {
 		t.Fatal(err)
 	}
 
 	// ensures that delete does not fail if a resource is not found
-	if err := c.Delete("test-delete", strings.NewReader(testSvcEndpointManifest)); err != nil {
+	if err := c.Delete("test-delete", open(t, "testdata/service.yaml")); err != nil {
 		t.Fatal(err)
 	}
 }
-
-const testServiceManifest = `
-kind: Service
-apiVersion: v1
-metadata:
-  name: my-service
-spec:
-  selector:
-    app: myapp
-  ports:
-    - port: 80
-      protocol: TCP
-      targetPort: 9376
-`
-
-const testInvalidServiceManifest = `
-kind: Service
-apiVersion: v1
-spec:
-  ports:
-    - port: "80"
-`
-
-const testEndpointManifest = `
-kind: Endpoints
-apiVersion: v1
-metadata:
-  name: my-service
-subsets:
-  - addresses:
-      - ip: "1.2.3.4"
-    ports:
-      - port: 9376
-`
-
-const guestbookManifest = `
-apiVersion: v1
-kind: Service
-metadata:
-  name: redis-master
-  labels:
-    app: redis
-    tier: backend
-    role: master
-spec:
-  ports:
-  - port: 6379
-    targetPort: 6379
-  selector:
-    app: redis
-    tier: backend
-    role: master
----
-apiVersion: extensions/v1beta1
-kind: Deployment
-metadata:
-  name: redis-master
-spec:
-  replicas: 1
-  template:
-    metadata:
-      labels:
-        app: redis
-        role: master
-        tier: backend
-    spec:
-      containers:
-      - name: master
-        image: k8s.gcr.io/redis:e2e  # or just image: redis
-        resources:
-          requests:
-            cpu: 100m
-            memory: 100Mi
-        ports:
-        - containerPort: 6379
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: redis-slave
-  labels:
-    app: redis
-    tier: backend
-    role: slave
-spec:
-  ports:
-    # the port that this service should serve on
-  - port: 6379
-  selector:
-    app: redis
-    tier: backend
-    role: slave
----
-apiVersion: extensions/v1beta1
-kind: Deployment
-metadata:
-  name: redis-slave
-spec:
-  replicas: 2
-  template:
-    metadata:
-      labels:
-        app: redis
-        role: slave
-        tier: backend
-    spec:
-      containers:
-      - name: slave
-        image: gcr.io/google_samples/gb-redisslave:v1
-        resources:
-          requests:
-            cpu: 100m
-            memory: 100Mi
-        env:
-        - name: GET_HOSTS_FROM
-          value: dns
-        ports:
-        - containerPort: 6379
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: frontend
-  labels:
-    app: guestbook
-    tier: frontend
-spec:
-  ports:
-  - port: 80
-  selector:
-    app: guestbook
-    tier: frontend
----
-apiVersion: extensions/v1beta1
-kind: Deployment
-metadata:
-  name: frontend
-spec:
-  replicas: 3
-  template:
-    metadata:
-      labels:
-        app: guestbook
-        tier: frontend
-    spec:
-      containers:
-      - name: php-redis
-        image: gcr.io/google-samples/gb-frontend:v4
-        resources:
-          requests:
-            cpu: 100m
-            memory: 100Mi
-        env:
-        - name: GET_HOSTS_FROM
-          value: dns
-        ports:
-        - containerPort: 80
-`
