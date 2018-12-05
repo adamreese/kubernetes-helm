@@ -55,10 +55,6 @@ func (k *mockKubeClient) WaitAndGetCompletedPodPhase(namespace string, reader io
 	return v1.PodUnknown, nil
 }
 
-func (k *mockKubeClient) WaitAndGetCompletedPodStatus(namespace string, reader io.Reader, timeout time.Duration) (v1.PodPhase, error) {
-	return "", nil
-}
-
 var _ KubeClient = &mockKubeClient{}
 var _ KubeClient = &PrintingKubeClient{}
 
