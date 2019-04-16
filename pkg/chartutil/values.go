@@ -46,9 +46,6 @@ const GlobalKey = "global"
 // Values represents a collection of chart values.
 type Values map[string]interface{}
 
-// Schema represents the document structure to validate the values.yaml file against
-type Schema map[string]interface{}
-
 // YAML encodes the Values into a YAML string.
 func (v Values) YAML() (string, error) {
 	b, err := yaml.Marshal(v)
@@ -128,15 +125,6 @@ func ReadValues(data []byte) (vals Values, err error) {
 	return vals, err
 }
 
-// ReadSchema will parse YAML byte data into a Schema.
-func ReadSchema(data []byte) (schema Schema, err error) {
-	err = yaml.Unmarshal(data, &schema)
-	if len(schema) == 0 {
-		schema = Schema{}
-	}
-	return schema, err
-}
-
 // ReadValuesFile will parse a YAML file into a map of values.
 func ReadValuesFile(filename string) (Values, error) {
 	data, err := ioutil.ReadFile(filename)
@@ -146,22 +134,13 @@ func ReadValuesFile(filename string) (Values, error) {
 	return ReadValues(data)
 }
 
-// ReadSchemaFile will parse a YAML file into a Schema.
-func ReadSchemaFile(filename string) (Schema, error) {
-	data, err := ioutil.ReadFile(filename)
-	if err != nil {
-		return Schema{}, err
-	}
-	return ReadSchema(data)
-}
-
 // ValidateAgainstSchema checks that values does not violate the structure laid out in schema
-func ValidateAgainstSchema(values Values, schema Schema) error {
+func ValidateAgainstSchema(values Values, schema []byte) error {
 	valuesJSON, err := convertYAMLToJSON(values)
 	if err != nil {
 		return err
 	}
-	schemaJSON, err := convertYAMLToJSON(schema)
+	schemaJSON, err := yaml.YAMLToJSON(schema)
 	if err != nil {
 		return err
 	}
@@ -183,73 +162,6 @@ func ValidateAgainstSchema(values Values, schema Schema) error {
 	}
 
 	return nil
-}
-
-// GenerateSchema will create a JSON Schema (in YAML format) for the given values
-func GenerateSchema(values Values) Schema {
-	schema := Schema{
-		gojsonschema.KEY_TYPE:  gojsonschema.TYPE_OBJECT,
-		gojsonschema.KEY_TITLE: "Values",
-	}
-	if len(values) > 0 {
-		schema[gojsonschema.STRING_PROPERTIES] = parsePropertiesFromValues(values)
-	}
-	return schema
-}
-
-func parsePropertiesFromValues(values Values) map[string]map[string]interface{} {
-	properties := make(map[string]map[string]interface{})
-	for k, v := range values {
-		// If the value is null, then there's no way to determine the properties attributes
-		if v == nil || v == "" {
-			continue
-		}
-
-		properties[k] = make(map[string]interface{})
-		// the following types are the only types possible from unmarshalling
-		switch v := v.(type) {
-		case bool:
-			properties[k][gojsonschema.KEY_TYPE] = gojsonschema.TYPE_BOOLEAN
-		case float64:
-			properties[k][gojsonschema.KEY_TYPE] = gojsonschema.TYPE_NUMBER
-		case string:
-			properties[k][gojsonschema.KEY_TYPE] = gojsonschema.TYPE_STRING
-		case []interface{}:
-			properties[k][gojsonschema.KEY_TYPE] = gojsonschema.TYPE_ARRAY
-			properties[k][gojsonschema.KEY_ITEMS] = parseItemsFromValues(v)
-		case map[string]interface{}:
-			properties[k][gojsonschema.KEY_TYPE] = gojsonschema.TYPE_OBJECT
-			object := parsePropertiesFromValues(v)
-			if len(object) > 0 {
-				properties[k][gojsonschema.TYPE_OBJECT] = object
-			}
-		}
-	}
-	return properties
-}
-
-func parseItemsFromValues(items []interface{}) map[string]interface{} {
-	properties := make(map[string]interface{})
-	v := items[0]
-	// the following types are the only types possible from unmarshalling
-	switch v := v.(type) {
-	case bool:
-		properties[gojsonschema.KEY_TYPE] = gojsonschema.TYPE_BOOLEAN
-	case float64:
-		properties[gojsonschema.KEY_TYPE] = gojsonschema.TYPE_NUMBER
-	case string:
-		properties[gojsonschema.KEY_TYPE] = gojsonschema.TYPE_STRING
-	case []interface{}:
-		properties[gojsonschema.KEY_TYPE] = gojsonschema.TYPE_ARRAY
-		properties[gojsonschema.KEY_ITEMS] = parseItemsFromValues(v)
-	case map[string]interface{}:
-		properties[gojsonschema.KEY_TYPE] = gojsonschema.TYPE_OBJECT
-		object := parsePropertiesFromValues(v)
-		if len(object) > 0 {
-			properties[gojsonschema.TYPE_OBJECT] = object
-		}
-	}
-	return properties
 }
 
 // CoalesceValues coalesces all of the values in a chart (and its subcharts).
