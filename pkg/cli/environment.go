@@ -103,7 +103,10 @@ func envOr(name, def string) string {
 }
 
 func (s *EnvSettings) EnvVars() map[string]string {
-	envvars := map[string]string{
+	raw, _ := s.config.ToRawKubeConfigLoader().RawConfig()
+	cfg, _ := s.config.ToRawKubeConfigLoader().ClientConfig()
+
+	env := map[string]string{
 		"HELM_BIN":               os.Args[0],
 		"HELM_DEBUG":             fmt.Sprint(s.Debug),
 		"HELM_PLUGINS":           s.PluginsDirectory,
@@ -111,16 +114,22 @@ func (s *EnvSettings) EnvVars() map[string]string {
 		"HELM_REPOSITORY_CACHE":  s.RepositoryCache,
 		"HELM_REPOSITORY_CONFIG": s.RepositoryConfig,
 		"HELM_NAMESPACE":         s.Namespace(),
-
-		// broken, these are populated from helm flags and not kubeconfig.
-		"HELM_KUBECONTEXT":   s.KubeContext,
-		"HELM_KUBETOKEN":     s.KubeToken,
-		"HELM_KUBEAPISERVER": s.KubeAPIServer,
 	}
 	if s.KubeConfig != "" {
-		envvars["KUBECONFIG"] = s.KubeConfig
+		env["KUBECONFIG"] = s.KubeConfig
 	}
-	return envvars
+	if s.KubeContext != "" {
+		env["HELM_KUBECONTEXT"] = s.KubeContext
+	} else {
+		env["HELM_KUBECONTEXT"] = raw.CurrentContext
+	}
+	if cfg.BearerToken != "" {
+		env["HELM_KUBETOKEN"] = cfg.BearerToken
+	}
+	if cfg.Host != "" {
+		env["HELM_KUBEAPISERVER"] = cfg.Host
+	}
+	return env
 }
 
 // Namespace gets the namespace from the configuration
